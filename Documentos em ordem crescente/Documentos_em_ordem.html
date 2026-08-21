@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Documentos em Ordem — Processador Cronológico</title>
+<title>Documentos em Ordem — Processador Cronológico + Transcrição</title>
 
 <!-- PDF.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -22,6 +22,13 @@
 
 <!-- JSZip (ler .odt e outros ZIPs) -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<!-- Transformers.js (Whisper ASR via ONNX/WASM) -->
+<script type="module">
+  import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1';
+  window.__transformers = { pipeline, env };
+  window.dispatchEvent(new Event('transformers-ready'));
+</script>
 
 <style>
 :root{
@@ -115,6 +122,38 @@ button.retry{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;borde
 .prec-desc{font-size:10px;color:var(--muted);display:block;margin-top:1px}
 .prec-text{display:flex;flex-direction:column;flex:1}
 
+/* Whisper model selector */
+.whisper-panel{display:flex;flex-direction:column;gap:8px}
+.whisper-model-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);cursor:pointer;transition:.15s;border-left:3px solid transparent;text-align:left}
+.whisper-model-btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel2))}
+.whisper-model-btn.active{border-color:var(--accent);border-left-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--panel2))}
+.whisper-status{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel3);font-size:12px;color:var(--muted)}
+.whisper-status .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.whisper-status .dot.loading{background:var(--warn);animation:pulse 1s infinite}
+.whisper-status .dot.ready{background:var(--accent2);box-shadow:0 0 6px var(--accent2)}
+.whisper-status .dot.error{background:var(--danger)}
+.whisper-status .dot.idle{background:var(--muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.whisper-progress{background:var(--panel3);border-radius:999px;height:6px;overflow:hidden;margin-top:4px}
+.whisper-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--warn),var(--accent));transition:width .3s}
+
+/* Language selector */
+.lang-select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.lang-select:focus{outline:none;border-color:var(--accent)}
+
+/* GPU toggle */
+.gpu-toggle{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);font-size:12px}
+.gpu-toggle .gpu-label{display:flex;flex-direction:column;gap:1px}
+.gpu-toggle .gpu-label strong{color:var(--text);font-size:13px}
+.gpu-toggle .gpu-label span{color:var(--muted);font-size:10px}
+.switch{position:relative;width:38px;height:20px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--panel3);border:1px solid var(--line);border-radius:999px;transition:.2s}
+.slider:before{content:'';position:absolute;height:14px;width:14px;left:2px;bottom:2px;background:var(--muted);border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--accent);border-color:var(--accent)}
+.switch input:checked+.slider:before{transform:translateX(18px);background:#fff}
+.switch input:disabled+.slider{opacity:.4;cursor:not-allowed}
+
 main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template-columns:340px 1fr;gap:16px}
 .panel{
   background:color-mix(in srgb,var(--panel) 96%,transparent);
@@ -194,7 +233,7 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
   <div class="wrap topbar">
     <div class="brand">
       <h1>📄 Documentos em Ordem</h1>
-      <p>Selecione uma pasta, processe todos os arquivos e exporte um .docx cronológico.</p>
+      <p>Selecione uma pasta, processe arquivos, transcreva áudio/vídeo e exporte um .docx cronológico.</p>
     </div>
     <div class="actions">
       <button id="themeBtn" title="Alternar tema">🌓 Tema</button>
@@ -205,6 +244,7 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
         <button id="cancelBtn" class="cancel" style="display:none" title="Cancelar processamento">✕ Cancelar</button>
       </div>
       <button id="exportBtn" class="warn" disabled title="Exportar .docx">📥 Exportar .docx</button>
+      <button id="srtBtn" class="primary" disabled title="Exportar legendas .srt">📝 Exportar .srt</button>
       <button id="retryBtn" class="retry" style="display:none" title="Reprocessar arquivos com erro">🔁 Repetir Erros</button>
     </div>
   </div>
@@ -221,8 +261,61 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
       <div class="stat-box red"><div class="num" id="statErrors">0</div><div class="label">Erros</div></div>
     </div>
 
+    <!-- Whisper Transcription Engine -->
+    <div class="section-title"><span>🧠 Transcrição IA</span><span class="badge" id="whisperBadge">Whisper</span></div>
+    <div class="whisper-panel">
+      <div class="whisper-status">
+        <span class="dot idle" id="whisperDot"></span>
+        <span id="whisperStatusText">Não carregado</span>
+      </div>
+      <div id="whisperProgressWrap" class="whisper-progress" style="display:none"><div class="whisper-progress-bar" id="whisperProgressBar"></div></div>
+      <div id="whisperModels">
+        <button class="whisper-model-btn active" data-model="tiny" onclick="selectWhisperModel('tiny')">
+          <span class="prec-icon">⚡</span>
+          <span class="prec-text"><span class="prec-label">Tiny</span><span class="prec-desc">~75 MB · Rápido, qualidade básica</span></span>
+        </button>
+        <button class="whisper-model-btn" data-model="base" onclick="selectWhisperModel('base')">
+          <span class="prec-icon">⚖️</span>
+          <span class="prec-text"><span class="prec-label">Base</span><span class="prec-desc">~140 MB · Equilibrado</span></span>
+        </button>
+        <button class="whisper-model-btn" data-model="small" onclick="selectWhisperModel('small')">
+          <span class="prec-icon">🔬</span>
+          <span class="prec-text"><span class="prec-label">Small</span><span class="prec-desc">~460 MB · Melhor qualidade</span></span>
+        </button>
+      </div>
+      <!-- WebGPU toggle -->
+      <div class="gpu-toggle">
+        <div class="gpu-label">
+          <strong>⚡ Aceleração GPU</strong>
+          <span id="gpuStatus">Verificando WebGPU...</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="gpuToggle" onchange="toggleWebGPU(this.checked)" disabled>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <!-- Language selector -->
+      <div style="margin-top:2px">
+        <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.06em">Idioma da transcrição</label>
+        <select id="langSelect" class="lang-select" onchange="selectTranscriptionLang(this.value)">
+          <option value="pt" selected>🇧🇷 Português</option>
+          <option value="en">🇺🇸 English</option>
+          <option value="es">🇪🇸 Español</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="it">🇮🇹 Italiano</option>
+          <option value="ja">🇯🇵 日本語</option>
+          <option value="ko">🇰🇷 한국어</option>
+          <option value="zh">🇨🇳 中文</option>
+          <option value="ru">🇷🇺 Русский</option>
+          <option value="ar">🇸🇦 العربية</option>
+          <option value="hi">🇮🇳 हिन्दी</option>
+        </select>
+      </div>
+    </div>
+
     <!-- Precision -->
-    <div class="section-title"><span>Precisão</span></div>
+    <div class="section-title"><span>Precisão OCR</span></div>
     <div class="precision-selector">
       <button class="prec-btn active" data-level="1" onclick="setPrecision(1)">
         <span class="prec-icon">⚡</span>
@@ -309,6 +402,7 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
           4. Clique em <em>Exportar .docx</em> para baixar o compilado.
         </p>
         <p style="margin-top:12px;font-size:12px;color:var(--muted)">💡 Para eliminar avisos do navegador, use um servidor local (painel à esquerda).</p>
+        <p style="margin-top:8px;font-size:12px;color:var(--accent)">🧠 Transcrição IA: Whisper (Hugging Face) roda localmente no navegador — sem enviar dados para servidores.</p>
       </div>
     </div>
 
@@ -372,6 +466,7 @@ const EXT_DOC   = new Set(['doc']);
 const EXT_ODT   = new Set(['odt']);
 const EXT_IMG   = new Set(['jpg','jpeg','png','tiff','tif','bmp','gif','webp','svg']);
 const EXT_AUDIO = new Set(['mp3','wav','aac','flac','ogg','m4a','wma','opus']);
+const EXT_VIDEO = new Set(['mp4','webm','mkv','avi','mov','m4v','3gp','ogv','ts','mts']);
 
 function classifyExt(ext) {
   ext = ext.toLowerCase();
@@ -382,6 +477,7 @@ function classifyExt(ext) {
   if (EXT_ODT.has(ext))  return 'odt';
   if (EXT_IMG.has(ext))  return 'imagem';
   if (EXT_AUDIO.has(ext))return 'audio';
+  if (EXT_VIDEO.has(ext))return 'video';
   return 'desconhecido';
 }
 
@@ -394,6 +490,7 @@ function extIcon(type) {
     case 'odt':   return '📙';
     case 'imagem':return '🖼️';
     case 'audio': return '🎵';
+    case 'video': return '🎬';
     default:      return '📎';
   }
 }
@@ -408,6 +505,7 @@ function docxIcon(type) {
     case 'odt':   return '[ODT]';
     case 'imagem':return '[IMG]';
     case 'audio': return '[AUD]';
+    case 'video': return '[VID]';
     default:      return '[---]';
   }
 }
@@ -423,6 +521,343 @@ let isPaused = false;
 let pauseResolve = null;  // resolve function to unpause
 let activeFilter = 'all';
 let precisionLevel = 1;  // 1=fast, 2=balanced, 3=maximum
+
+/* --- Whisper state --- */
+let whisperModel = null;         // loaded pipeline instance
+let whisperModelName = 'tiny';  // selected model: tiny, base, small
+let whisperLoading = false;
+let useWebGPU = false;  // WebGPU acceleration
+let webgpuAvailable = false;
+let transcriptionLang = 'pt';
+const BATCH_PAUSE_MS = 50;  // ms to yield between files
+const LARGE_FILE_THRESHOLD = 300;  // seconds — files longer than this get chunked transcription  // Whisper language code
+const WHISPER_LANGUAGES = {
+  pt: { whisper: 'portuguese', speechApi: 'pt-BR', label: 'Português' },
+  en: { whisper: 'english',     speechApi: 'en-US', label: 'English' },
+  es: { whisper: 'spanish',     speechApi: 'es-ES', label: 'Español' },
+  fr: { whisper: 'french',      speechApi: 'fr-FR', label: 'Français' },
+  de: { whisper: 'german',      speechApi: 'de-DE', label: 'Deutsch' },
+  it: { whisper: 'italian',     speechApi: 'it-IT', label: 'Italiano' },
+  ja: { whisper: 'japanese',    speechApi: 'ja-JP', label: '日本語' },
+  ko: { whisper: 'korean',      speechApi: 'ko-KR', label: '한국어' },
+  zh: { whisper: 'chinese',     speechApi: 'zh-CN', label: '中文' },
+  ru: { whisper: 'russian',     speechApi: 'ru-RU', label: 'Русский' },
+  ar: { whisper: 'arabic',      speechApi: 'ar-SA', label: 'العربية' },
+  hi: { whisper: 'hindi',       speechApi: 'hi-IN', label: 'हिन्दी' },
+};
+
+function selectTranscriptionLang(lang) {
+  transcriptionLang = lang;
+  const info = WHISPER_LANGUAGES[lang];
+  log(`Idioma de transcrição alterado: <strong>${info.label}</strong>`, 'info');
+  // If model already loaded with different language, no need to reload
+  // Whisper supports language param per-request
+}
+
+const WHISPER_MODELS = {
+  tiny:  { id: 'Xenova/whisper-tiny',  label: 'Tiny',  size: '~75 MB' },
+  base:  { id: 'Xenova/whisper-base',  label: 'Base',  size: '~140 MB' },
+  small: { id: 'Xenova/whisper-small', label: 'Small', size: '~460 MB' },
+};
+
+function selectWhisperModel(model) {
+  if (whisperLoading) return;
+  whisperModelName = model;
+  document.querySelectorAll('.whisper-model-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.model === model);
+  });
+  log(`Modelo Whisper selecionado: <strong>${WHISPER_MODELS[model].label}</strong> (${WHISPER_MODELS[model].size})`, 'info');
+}
+
+// Detect WebGPU support on load
+(async function detectWebGPU() {
+  try {
+    if (navigator.gpu) {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (adapter) {
+        webgpuAvailable = true;
+        $('gpuStatus').textContent = 'Disponível ✓';
+        $('gpuStatus').style.color = 'var(--accent2)';
+        $('gpuToggle').disabled = false;
+        $('gpuToggle').checked = true;
+        useWebGPU = true;
+        log('WebGPU disponível — aceleração GPU ativada.', 'ok');
+        return;
+      }
+    }
+    $('gpuStatus').textContent = 'Não disponível (usando CPU)';
+    $('gpuStatus').style.color = 'var(--muted)';
+    log('WebGPU não disponível neste navegador. Whisper usará CPU (WASM).', 'dim');
+  } catch(e) {
+    $('gpuStatus').textContent = 'Indisponível';
+    log('Erro ao verificar WebGPU: ' + e.message, 'dim');
+  }
+})();
+
+function toggleWebGPU(enabled) {
+  useWebGPU = enabled && webgpuAvailable;
+  if (whisperModel) {
+    // Must reload model with different device
+    whisperModel = null;
+    log(`WebGPU ${enabled ? 'ativado' : 'desativado'}. Modelo será recarregado.`, 'info');
+    setWhisperStatus('idle', useWebGPU ? 'GPU — recarregar modelo' : 'CPU — recarregar modelo');
+  }
+}
+
+function setWhisperStatus(state, msg) {
+  const dot = $('whisperDot');
+  dot.className = 'dot ' + state;
+  $('whisperStatusText').textContent = msg;
+}
+
+function setWhisperProgress(pct) {
+  $('whisperProgressWrap').style.display = '';
+  $('whisperProgressBar').style.width = pct + '%';
+}
+
+function hideWhisperProgress() {
+  $('whisperProgressWrap').style.display = 'none';
+}
+
+// Lazy-load Whisper model via Transformers.js
+async function getWhisperPipeline() {
+  if (whisperModel) return whisperModel;
+  if (whisperLoading) return null;
+
+  // Check if Transformers.js loaded
+  if (!window.__transformers) {
+    log('Transformers.js não carregou. Aguardando...', 'warntext');
+    await new Promise((resolve) => {
+      window.addEventListener('transformers-ready', resolve, { once: true });
+      setTimeout(resolve, 10000);
+    });
+    if (!window.__transformers) {
+      log('Transformers.js não disponível.', 'err');
+      return null;
+    }
+  }
+
+  whisperLoading = true;
+  const config = WHISPER_MODELS[whisperModelName];
+  const device = useWebGPU ? 'webgpu' : 'wasm';
+  const deviceLabel = useWebGPU ? 'GPU' : 'CPU';
+  setWhisperStatus('loading', `Baixando ${config.label} (${deviceLabel})...`);
+  log(`Carregando modelo Whisper ${config.label} (${config.size}) em <strong>${deviceLabel}</strong>...`, 'info');
+  setWhisperProgress(0);
+
+  try {
+    const { pipeline, env } = window.__transformers;
+    // Use ONNX models from Hugging Face Hub
+    env.allowRemoteModels = true;
+    env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
+
+    // Build pipeline options
+    const pipeOptions = {
+      device: device,
+      progress_callback: (data) => {
+        if (data.status === 'progress' && data.progress !== undefined) {
+          setWhisperProgress(Math.round(data.progress));
+        }
+        if (data.status === 'done') {
+          setWhisperProgress(100);
+        }
+      }
+    };
+
+    // For WebGPU: use fp32 (default). For WASM: use q8 (smaller, faster on CPU)
+    if (!useWebGPU) {
+      pipeOptions.dtype = 'q8';
+    }
+
+    whisperModel = await pipeline('automatic-speech-recognition', config.id, pipeOptions);
+
+    const modeStr = useWebGPU ? '⚡ GPU' : '🔧 CPU';
+    setWhisperStatus('ready', `${config.label} pronto (${modeStr})`);
+    hideWhisperProgress();
+    log(`✔ Modelo Whisper ${config.label} carregado em ${modeStr}!`, 'ok');
+    whisperLoading = false;
+    return whisperModel;
+
+  } catch (e) {
+    // If WebGPU failed, suggest falling back to WASM
+    if (useWebGPU) {
+      log(`WebGPU falhou. Tentando fallback para WASM...`, 'warntext');
+      setWhisperStatus('loading', 'Fallback para CPU...');
+      useWebGPU = false;
+      if ($('gpuToggle').checked) {
+        $('gpuToggle').checked = false;
+        $('gpuStatus').textContent = 'Falhou — usando CPU';
+        $('gpuStatus').style.color = 'var(--warn)';
+      }
+      whisperLoading = false;
+      whisperModel = null;
+      // Retry with WASM
+      return await getWhisperPipeline();
+    }
+    setWhisperStatus('error', `Erro: ${e.message.substring(0, 40)}`);
+    hideWhisperProgress();
+    log(`✘ Erro ao carregar Whisper: ${e.message}`, 'err');
+    whisperLoading = false;
+    whisperModel = null;
+    return null;
+  }
+}
+
+// Convert AudioBuffer to Float32Array at 16kHz (Whisper input format)
+function audioBufferToFloat32(audioBuffer) {
+  // Mix all channels to mono
+  const numChannels = audioBuffer.numberOfChannels;
+  const length = audioBuffer.length;
+  const mixed = new Float32Array(length);
+
+  for (let ch = 0; ch < numChannels; ch++) {
+    const data = audioBuffer.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      mixed[i] += data[i] / numChannels;
+    }
+  }
+
+  // Resample to 16kHz if needed
+  const originalRate = audioBuffer.sampleRate;
+  if (originalRate === 16000) return mixed;
+
+  const targetRate = 16000;
+  const newLength = Math.round(length * targetRate / originalRate);
+  const result = new Float32Array(newLength);
+  const ratio = length / newLength;
+
+  for (let i = 0; i < newLength; i++) {
+    const srcIdx = i * ratio;
+    const idx0 = Math.floor(srcIdx);
+    const idx1 = Math.min(idx0 + 1, length - 1);
+    const frac = srcIdx - idx0;
+    result[i] = mixed[idx0] * (1 - frac) + mixed[idx1] * frac;
+  }
+
+  return result;
+}
+
+// Process audio/video with Whisper
+async function transcribeWithWhisper(f, audioData, duration) {
+  const pipe = await getWhisperPipeline();
+  if (!pipe) return null;
+
+  const min = Math.floor(duration / 60);
+  const sec = Math.floor(duration % 60);
+  const durStr = min > 0 ? `${min}min ${sec}s` : `${sec}s`;
+  log(`  [Whisper] Transcrevendo ${durStr} de áudio...`, 'info');
+
+  // Update file item tooltip with progress
+  const updateProgress = (pct) => {
+    const idx = files.indexOf(f);
+    if (idx < 0) return;
+    const filtered = activeFilter === 'all' ? files : files.filter(ft => ft.type === activeFilter);
+    const fi = filtered.indexOf(f);
+    const items = document.querySelectorAll('.file-item');
+    if (fi >= 0 && items[fi]) {
+      const meta = items[fi].querySelector('.meta');
+      if (meta) meta.textContent = `⚙️ Whisper ${pct}%`;
+    }
+  };
+
+  try {
+    const langOpt = WHISPER_LANGUAGES[transcriptionLang].whisper;
+    let result;
+
+    if (duration > LARGE_FILE_THRESHOLD) {
+      // === LARGE FILE: process in segments to avoid memory issues ===
+      const SEGMENT_SEC = 120;  // 2-minute segments
+      const OVERLAP = 5;       // 5-second overlap for continuity
+      const totalSamples = audioData.length;
+      const samplesPerSec = 16000;  // Always 16kHz after conversion
+      const segmentSamples = SEGMENT_SEC * samplesPerSec;
+      const overlapSamples = OVERLAP * samplesPerSec;
+      const numSegments = Math.ceil(totalSamples / (segmentSamples - overlapSamples));
+
+      log(`  [Whisper] Arquivo longo: processando em ${numSegments} segmentos de ${SEGMENT_SEC}s...`, 'info');
+
+      let allText = '';
+      let allChunks = [];
+      let timeOffset = 0;
+
+      for (let seg = 0; seg < numSegments; seg++) {
+        if (isCancelled) break;
+        await waitForResume();
+
+        const start = seg * (segmentSamples - overlapSamples);
+        const end = Math.min(start + segmentSamples, totalSamples);
+        const segment = audioData.slice(start, end);
+        const segDuration = segment.length / samplesPerSec;
+
+        const pct = Math.round(((seg + 1) / numSegments) * 100);
+        updateProgress(pct);
+        log(`  [Whisper] Segmento ${seg + 1}/${numSegments} (${Math.round(segDuration)}s)...`, 'dim');
+
+        const segResult = await pipe(segment, {
+          chunk_length_s: 30,
+          stride_length_s: 5,
+          language: langOpt,
+          task: 'transcribe',
+        });
+
+        const segText = (segResult.text || '').trim();
+        const segChunks = (segResult.chunks || []).map(c => ({
+          timestamp: [
+            c.timestamp ? c.timestamp[0] + timeOffset : timeOffset,
+            c.timestamp ? c.timestamp[1] + timeOffset : timeOffset + segDuration
+          ],
+          text: c.text
+        }));
+
+        allChunks.push(...segChunks);
+        if (segText) allText += (allText ? ' ' : '') + segText;
+
+        timeOffset += segDuration - OVERLAP;
+
+        // Yield to browser between segments
+        await sleep(10);
+      }
+
+      result = { text: allText, chunks: allChunks };
+
+    } else {
+      // === SHORT FILE: process directly ===
+      result = await pipe(audioData, {
+        chunk_length_s: 30,
+        stride_length_s: 5,
+        language: langOpt,
+        task: 'transcribe',
+      });
+    }
+
+    const text = (result.text || '').trim();
+    const chunks = result.chunks || [];
+    log(`  [Whisper] Transcrição: ${text.length} caracteres, ${chunks.length} segmentos`, text.length > 0 ? 'ok' : 'warntext');
+
+    // Reset tooltip
+    const idx = files.indexOf(f);
+    if (idx >= 0) {
+      const filtered = activeFilter === 'all' ? files : files.filter(ft => ft.type === activeFilter);
+      const fi = filtered.indexOf(f);
+      const items = document.querySelectorAll('.file-item');
+      if (fi >= 0 && items[fi]) {
+        const meta = items[fi].querySelector('.meta');
+        if (meta) {
+          const dateStr = new Date(f.lastModified).toLocaleDateString('pt-BR');
+          const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
+                          f.size > 1024 ? (f.size/1024).toFixed(0)+' KB' : f.size+' B';
+          meta.textContent = `${dateStr} · ${sizeStr}`;
+        }
+      }
+    }
+
+    return { text, chunks };
+
+  } catch (e) {
+    log(`  [Whisper] Erro na transcrição: ${e.message}`, 'err');
+    return null;
+  }
+}
 
 function setPrecision(level) {
   precisionLevel = level;
@@ -467,11 +902,20 @@ function stopTimer() {
 function updateTimer() {
   const elapsed = totalTimeProcessing + (Date.now() - batchStartTime);
   $('batchTimer').textContent = formatMs(elapsed);
-  // ETA calculation
+  // ETA calculation — weighted by file type (audio/video take longer)
   if (filesProcessedSoFar > 0 && currentFileIndex < files.length) {
-    const avg = elapsed / filesProcessedSoFar;
-    const remaining = (files.length - currentFileIndex) * avg;
-    $('batchETA').textContent = formatMs(remaining);
+    const elapsedSec = elapsed / 1000;
+    const avgPerFile = elapsedSec / filesProcessedSoFar;
+    // Estimate remaining time considering file types
+    let remainingSec = 0;
+    for (let i = currentFileIndex; i < files.length; i++) {
+      const f = files[i];
+      if (f.status === 'done' || f.status === 'error') continue;
+      // Audio/video take ~3x longer than text/image
+      const weight = (f.type === 'audio' || f.type === 'video') ? 3 : 1;
+      remainingSec += avgPerFile * weight;
+    }
+    $('batchETA').textContent = formatMs(remainingSec * 1000);
   }
 }
 function formatMs(ms) {
@@ -527,45 +971,62 @@ async function scanFolder(handle) {
   $('previewPanel').style.display = 'none';
   $('previewBox').textContent = '';
 
-  log('Escaneando pasta...', 'info');
+  log('Escaneando pasta (incluindo subpastas)...', 'info');
   let count = 0;
+  let folderCount = 0;
 
-  for await (const entry of handle.values()) {
-    if (entry.kind !== 'file') continue;
+  // Recursive scan helper
+  async function scanDir(dirHandle, relativePath) {
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === 'directory') {
+        folderCount++;
+        const subPath = relativePath ? relativePath + '/' + entry.name : entry.name;
+        await scanDir(entry, subPath);
+        continue;
+      }
 
-    const name = entry.name;
-    const dotPos = name.lastIndexOf('.');
-    if (dotPos === -1) continue; // sem extensão, ignora
-    const ext = name.substring(dotPos + 1).toLowerCase();
-    const type = classifyExt(ext);
+      // It's a file
+      const name = entry.name;
+      const dotPos = name.lastIndexOf('.');
+      if (dotPos === -1) continue;
+      const ext = name.substring(dotPos + 1).toLowerCase();
+      const type = classifyExt(ext);
 
-    if (type === 'desconhecido') {
-      log(`Ignorado (tipo desconhecido): <strong>${name}</strong>`, 'dim');
-      continue;
+      if (type === 'desconhecido') {
+        log(`Ignorado (tipo desconhecido): <strong>${relativePath ? relativePath + '/' : ''}${name}</strong>`, 'dim');
+        continue;
+      }
+
+      const fileHandle = entry;
+      const fileObj = await fileHandle.getFile();
+
+      files.push({
+        handle: fileHandle,
+        name: name,
+        path: relativePath || '',  // relative path from root folder
+        ext: ext,
+        type: type,
+        lastModified: fileObj.lastModified || Date.now(),
+        size: fileObj.size,
+        status: 'pending',
+        content: null,
+        chunks: null,
+        error: null,
+        _fileObj: fileObj
+      });
+      count++;
     }
-
-    const fileHandle = entry;
-    const fileObj = await fileHandle.getFile();
-
-    files.push({
-      handle: fileHandle,
-      name: name,
-      ext: ext,
-      type: type,
-      lastModified: fileObj.lastModified || Date.now(),
-      size: fileObj.size,
-      status: 'pending',
-      content: null,
-      error: null,
-      _fileObj: fileObj
-    });
-    count++;
   }
+
+  await scanDir(handle, '');
 
   // Ordenar cronologicamente (mais antigo primeiro)
   files.sort((a, b) => a.lastModified - b.lastModified);
 
-  log(`Encontrados <strong>${count}</strong> arquivos compatíveis.`, 'ok');
+  const msg = folderCount > 0
+    ? `Encontrados <strong>${count}</strong> arquivos compatíveis em <strong>${folderCount + 1}</strong> pastas.`
+    : `Encontrados <strong>${count}</strong> arquivos compatíveis.`;
+  log(msg, 'ok');
   renderFileList();
   updateStats();
   renderFilterPills();
@@ -594,9 +1055,18 @@ function renderFileList() {
     if (f.status === 'done') statusIcon = '✅';
     if (f.status === 'error') statusIcon = '❌';
 
+    const displayName = f.path ? f.path + '/' + f.name : f.name;
+    const nameHtml = f.path
+      ? `<span style="color:var(--accent);font-size:10px">${f.path}/</span>${f.name}`
+      : f.name;
+    const hasSrt = f.status === 'done' && f.chunks && f.chunks.length > 0;
+    const srtBtnHtml = hasSrt
+      ? `<button style="padding:2px 6px;font-size:10px;border-radius:6px;border:1px solid var(--line);background:var(--panel3);color:var(--accent);cursor:pointer;flex-shrink:0" title="Baixar legenda .srt" onclick="event.stopPropagation();exportSingleSRT(${realIdx})">📝 .srt</button>`
+      : '';
     div.innerHTML = `
       <span class="status-icon">${statusIcon}</span>
-      <span class="name" title="${f.name}">${extIcon(f.type)} ${f.name}</span>
+      <span class="name" title="${displayName}">${extIcon(f.type)} ${nameHtml}</span>
+      ${srtBtnHtml}
       <span class="meta">${dateStr} · ${sizeStr}</span>
     `;
     div.style.cursor = f.status === 'done' ? 'pointer' : 'default';
@@ -648,13 +1118,17 @@ function updateStats() {
   if (done > 0) {
     $('exportBtn').disabled = false;
   }
+  // Enable SRT button if any file has transcription chunks
+  const hasSrt = files.some(f => f.status === 'done' && f.chunks && f.chunks.length > 0);
+  $('srtBtn').disabled = !hasSrt;
 }
 
 function showPreview(idx) {
   const f = files[idx];
   if (!f || !f.content) return;
   $('previewPanel').style.display = '';
-  $('previewBox').textContent = `--- ${f.name} (${f.type}) ---\n\n${f.content}`;
+  const label = f.path ? f.path + '/' + f.name : f.name;
+  $('previewBox').textContent = `--- ${label} (${f.type}) ---\n\n${f.content}`;
 }
 
 /* ============================================================
@@ -676,12 +1150,16 @@ function setProcessingUI(active) {
     $('cancelBtn').style.display = '';
     $('folderBtn').disabled = true;
     $('exportBtn').disabled = true;
+    $('srtBtn').disabled = true;
   } else {
     $('processBtn').style.display = '';
     $('pauseBtn').style.display = 'none';
     $('cancelBtn').style.display = 'none';
     $('folderBtn').disabled = false;
     $('exportBtn').disabled = files.every(f => f.status !== 'done');
+    // Enable SRT button if any file has transcription chunks
+    const hasSrt = files.some(f => f.status === 'done' && f.chunks && f.chunks.length > 0);
+    $('srtBtn').disabled = !hasSrt;
     // Show retry button if there are errors
     const hasErrors = files.some(f => f.status === 'error');
     $('retryBtn').style.display = hasErrors ? '' : 'none';
@@ -797,8 +1275,15 @@ async function startProcessing() {
     updateStats();
     updateBatchProgress(i + 1);
 
-    // Yield to browser between files
-    await sleep(30);
+    // Yield to browser between files — longer pause for large batches
+    const pauseMs = files.length > 20 ? 100 : BATCH_PAUSE_MS;
+    await sleep(pauseMs);
+
+    // Suggest GC after heavy files (audio/video)
+    if (f.type === 'audio' || f.type === 'video') {
+      f._fileObj = null;  // Release file reference
+      if (f._audioBuffer) { f._audioBuffer = null; }
+    }
   }
 
   stopTimer();
@@ -838,6 +1323,9 @@ async function processFile(f) {
       break;
     case 'audio':
       await processAudio(f);
+      break;
+    case 'video':
+      await processVideo(f);
       break;
     default:
       f.content = `[Tipo "${f.type}" não suportado para extração]`;
@@ -1180,7 +1668,83 @@ async function processImage(f) {
   log(`  OCR finalizado (nível ${precisionLevel}): ${result.confidence.toFixed(0)}% conf, ${result.text.length} chars`, result.text.length > 10 ? 'ok' : 'warntext');
 }
 
-/* ---- Audio metadata ---- */
+/* ---- Transcription via Web Speech API (fallback) ---- */
+async function transcribeViaSpeechAPI(f, mediaElementOrBuffer, duration) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    return { text: null, error: 'Web Speech API não suportada neste navegador.' };
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = WHISPER_LANGUAGES[transcriptionLang].speechApi;
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  return new Promise(async (resolve) => {
+    let finalText = '';
+    let recognizedAnything = false;
+
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalText += event.results[i][0].transcript + ' ';
+          recognizedAnything = true;
+        }
+      }
+    };
+    recognition.onerror = (event) => {
+      if (event.error !== 'aborted' && event.error !== 'no-speech') {
+        log(`  [Speech] Erro: ${event.error}`, 'warntext');
+      }
+    };
+
+    try {
+      recognition.start();
+      log(`  [Speech] Transcrição via navegador (idioma: pt-BR)...`, 'dim');
+
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      let source;
+      let audioElement = null;
+
+      if (mediaElementOrBuffer instanceof HTMLMediaElement) {
+        audioElement = mediaElementOrBuffer;
+        source = audioCtx.createMediaElementSource(audioElement);
+        source.connect(audioCtx.destination);
+        audioElement.play();
+      } else {
+        let audioBuffer;
+        if (mediaElementOrBuffer instanceof AudioBuffer) {
+          audioBuffer = mediaElementOrBuffer;
+        } else {
+          audioBuffer = await audioCtx.decodeAudioData(mediaElementOrBuffer);
+        }
+        source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioCtx.destination);
+        source.start();
+      }
+
+      await new Promise((res) => {
+        if (audioElement) { audioElement.onended = res; audioElement.onerror = res; }
+        else { source.onended = res; }
+        setTimeout(res, duration * 1000 + 30000);
+      });
+
+      await sleep(2000);
+      try { recognition.stop(); } catch(e) {}
+      await sleep(500);
+      if (audioCtx.state !== 'closed') try { await audioCtx.close(); } catch(e) {}
+
+      return { text: finalText.trim(), recognized: recognizedAnything };
+    } catch (e) {
+      try { recognition.stop(); } catch(err) {}
+      return { text: null, error: e.message };
+    }
+  });
+}
+
+/* ---- Audio processing ---- */
 async function processAudio(f) {
   log(`  Processando áudio: ${f.name}...`, 'dim');
 
@@ -1191,7 +1755,6 @@ async function processAudio(f) {
     const duration = audioBuffer.duration;
     const sr = audioBuffer.sampleRate;
     const ch = audioBuffer.numberOfChannels;
-    const length = audioBuffer.length;
 
     // Calcular volume RMS e pico
     const ch0 = audioBuffer.getChannelData(0);
@@ -1208,37 +1771,274 @@ async function processAudio(f) {
     const sec = Math.floor(duration % 60);
     const durStr = min > 0 ? `${min}min ${sec}s` : `${duration.toFixed(1)}s`;
 
+    // Metadata header
     let output = `[Áudio: ${f.name}]\n` +
                  `Duração: ${durStr}\n` +
                  `Canais: ${ch}\n` +
                  `Taxa de amostragem: ${sr} Hz\n` +
                  `Volume RMS: ${(rms * 100).toFixed(1)}% | Pico: ${(peak * 100).toFixed(1)}%\n`;
 
-    // Análise de silêncio
     if (rms < 0.005) {
       output += `\n[Áudio muito silencioso — sem voz detectável]\n`;
-    } else {
-      output += `\n[Áudio com conteúdo (RMS ${(rms*100).toFixed(1)}%)]\n`;
+      f.content = output;
+      audioCtx.close();
+      log(`  Áudio silencioso: ${durStr}`, 'warntext');
+      return;
     }
 
-    output += `\n[Transcrição de áudio em navegador é extremamente limitada.\n` +
-              `A Web Speech API do navegador só funciona com microfone ao vivo,\n` +
-              `não com arquivos de áudio gravados.\n\n` +
-              `Para transcrição precisa, use:\n` +
-              `  • Whisper (OpenAI) — gratuito e muito preciso\n` +
-              `  • Azure Speech-to-Text — enterprise\n` +
-              `  • Google Cloud Speech-to-Text\n` +
-              `  • AssemblyAI — API simples e precisa]\n`;
+    audioCtx.close();
+
+    // Convert to Float32Array at 16kHz for Whisper
+    const float32 = audioBufferToFloat32(audioBuffer);
+    let transcriptionText = null;
+
+    // Try Whisper first
+    log(`  Transcrevendo com Whisper (${WHISPER_MODELS[whisperModelName].label})...`, 'info');
+    const whisperResult = await transcribeWithWhisper(f, float32, duration);
+
+    // Free memory: release intermediate buffers
+    f._audioBuffer = null;
+
+    if (whisperResult && whisperResult.text) {
+      transcriptionText = whisperResult.text;
+      f.chunks = whisperResult.chunks || [];  // Store for SRT generation
+    }
+
+    // Fallback to Web Speech API if Whisper failed
+    if (!transcriptionText) {
+      log(`  Whisper indisponível. Tentando Web Speech API...`, 'warntext');
+      const arrayBuf2 = await f._fileObj.arrayBuffer();
+      const result = await transcribeViaSpeechAPI(f, arrayBuf2, duration);
+      if (result.recognized) transcriptionText = result.text;
+    }
+
+    if (transcriptionText) {
+      output += `\n--- TRANSCRIÇÃO (${whisperModel ? 'Whisper ' + WHISPER_MODELS[whisperModelName].label : 'Speech API'}) ---\n${transcriptionText}\n--- FIM TRANSCRIÇÃO ---\n`;
+      log(`  Transcrição concluída: ${transcriptionText.length} caracteres`, 'ok');
+    } else {
+      output += `\n[Transcrição não disponível — nenhuma fala reconhecida]\n`;
+      log(`  Nenhuma fala reconhecida`, 'warntext');
+    }
 
     f.content = output;
-    audioCtx.close();
-    log(`  Áudio analisado: ${durStr}, ${ch} canais, RMS ${(rms*100).toFixed(1)}%`, 'ok');
 
   } catch (e) {
     f.content = `[Erro ao processar áudio ${f.name}: ${e.message}]`;
     log(`  Erro áudio: ${e.message}`, 'err');
   }
 }
+
+/* ---- Video processing ---- */
+async function processVideo(f) {
+  log(`  Processando vídeo: ${f.name}...`, 'dim');
+
+  try {
+    // Create a hidden video element to extract metadata
+    const video = document.createElement('video');
+    video.preload = 'auto';
+    video.muted = false;
+    video.style.display = 'none';
+    document.body.appendChild(video);
+
+    const url = URL.createObjectURL(f._fileObj);
+    video.src = url;
+
+    // Wait for metadata to load
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = () => reject(new Error('Não foi possível carregar o vídeo. Formato pode não ser suportado pelo navegador.'));
+      setTimeout(() => reject(new Error('Timeout ao carregar vídeo')), 30000);
+    });
+
+    const duration = video.duration;
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+
+    // Formatar duração
+    const min = Math.floor(duration / 60);
+    const sec = Math.floor(duration % 60);
+    const durStr = min > 0 ? `${min}min ${sec}s` : `${duration.toFixed(1)}s`;
+
+    let output = `[Vídeo: ${f.name}]\n` +
+                 `Duração: ${durStr}\n` +
+                 `Resolução: ${w}×${h}\n` +
+                 `Formato: ${f.ext.toUpperCase()}\n`;
+
+    if (duration > 600) {
+      const longMin = Math.floor(duration / 60);
+      output += `\n[⚠️ Vídeo longo: ~${longMin} minutos. A transcrição pode demorar.${longMin > 15 ? ' Considere dividir em partes menores.' : ''}]\n`;
+      log(`  ⚠️ Vídeo longo (~${longMin} min) — transcrição pode demorar`, 'warntext');
+    }
+
+    // Extract audio from video using AudioContext decoding
+    let transcriptionText = null;
+    try {
+      log(`  Extraindo trilha de áudio do vídeo...`, 'dim');
+      const videoArrayBuffer = await f._fileObj.arrayBuffer();
+      const videoAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const videoAudioBuffer = await videoAudioCtx.decodeAudioData(videoArrayBuffer);
+      const float32 = audioBufferToFloat32(videoAudioBuffer);
+      videoAudioCtx.close();
+
+      // Try Whisper
+      log(`  Transcrevendo com Whisper (${WHISPER_MODELS[whisperModelName].label})...`, 'info');
+      const whisperResult = await transcribeWithWhisper(f, float32, duration);
+
+      // Free memory
+      f._audioBuffer = null;
+
+      if (whisperResult && whisperResult.text) {
+        transcriptionText = whisperResult.text;
+        f.chunks = whisperResult.chunks || [];  // Store for SRT generation
+      }
+
+      // Fallback to Web Speech API
+      if (!transcriptionText) {
+        log(`  Whisper indisponível. Tentando Web Speech API...`, 'warntext');
+        const result = await transcribeViaSpeechAPI(f, video, duration);
+        if (result.recognized) transcriptionText = result.text;
+      }
+    } catch (audioErr) {
+      log(`  Não foi possível extrair áudio: ${audioErr.message}`, 'warntext');
+      // Try Speech API directly with video element
+      const result = await transcribeViaSpeechAPI(f, video, duration);
+      if (result.recognized) transcriptionText = result.text;
+    }
+
+    if (transcriptionText) {
+      output += `\n--- TRANSCRIÇÃO (${whisperModel ? 'Whisper ' + WHISPER_MODELS[whisperModelName].label : 'Speech API'}) ---\n${transcriptionText}\n--- FIM TRANSCRIÇÃO ---\n`;
+      log(`  Transcrição concluída: ${transcriptionText.length} caracteres`, 'ok');
+    } else {
+      output += `\n[Transcrição não disponível — nenhuma fala reconhecida]\n`;
+      log(`  Nenhuma fala reconhecida`, 'warntext');
+    }
+
+    f.content = output;
+
+    // Cleanup
+    URL.revokeObjectURL(url);
+    video.remove();
+
+  } catch (e) {
+    f.content = `[Erro ao processar vídeo ${f.name}: ${e.message}]`;
+    log(`  Erro vídeo: ${e.message}`, 'err');
+    try {
+      const vid = document.querySelector('video[style*="display: none"]');
+      if (vid) { URL.revokeObjectURL(vid.src); vid.remove(); }
+    } catch(err) {}
+  }
+}
+
+/* ============================================================
+   SRT SUBTITLE GENERATION
+   ============================================================ */
+
+// Format seconds to SRT timestamp: HH:MM:SS,mmm
+function formatSrtTime(seconds) {
+  if (seconds == null || isNaN(seconds)) return '00:00:00,000';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const ms = Math.round((seconds % 1) * 1000);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms).padStart(3,'0')}`;
+}
+
+// Generate SRT content from chunks
+function generateSrtContent(chunks) {
+  if (!chunks || chunks.length === 0) return null;
+
+  let srt = '';
+  chunks.forEach((chunk, i) => {
+    const start = chunk.timestamp ? chunk.timestamp[0] : null;
+    const end = chunk.timestamp ? chunk.timestamp[1] : null;
+    const text = (chunk.text || '').trim();
+    if (!text) return;
+
+    srt += `${i + 1}\n`;
+    srt += `${formatSrtTime(start)} --> ${formatSrtTime(end)}\n`;
+    srt += `${text}\n\n`;
+  });
+
+  return srt.trim();
+}
+
+// Generate plain text transcript with timestamps
+function generateTxtTranscript(chunks) {
+  if (!chunks || chunks.length === 0) return null;
+  return chunks.map(chunk => {
+    const start = chunk.timestamp ? formatSrtTime(chunk.timestamp[0]) : '00:00:00,000';
+    const text = (chunk.text || '').trim();
+    return `[${start}] ${text}`;
+  }).join('\n');
+}
+
+// Download helper
+function downloadFile(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Export SRT for all transcribed files
+function exportSRT() {
+  const filesWithChunks = files.filter(f => f.status === 'done' && f.chunks && f.chunks.length > 0);
+  if (filesWithChunks.length === 0) {
+    log('Nenhum arquivo com legendas disponíveis para exportar.', 'warntext');
+    return;
+  }
+
+  // If only one file, download directly
+  if (filesWithChunks.length === 1) {
+    const f = filesWithChunks[0];
+    const srt = generateSrtContent(f.chunks);
+    if (srt) {
+      const name = f.name.replace(/\.[^.]+$/, '') + '.srt';
+      downloadFile(srt, name, 'application/x-subrip; charset=utf-8');
+      log(`✔ Legenda exportada: <strong>${name}</strong>`, 'ok');
+    }
+    return;
+  }
+
+  // Multiple files: download each one
+  let downloaded = 0;
+  filesWithChunks.forEach(f => {
+    const srt = generateSrtContent(f.chunks);
+    if (srt) {
+      const name = f.name.replace(/\.[^.]+$/, '') + '.srt';
+      setTimeout(() => {
+        downloadFile(srt, name, 'application/x-subrip; charset=utf-8');
+        downloaded++;
+        if (downloaded === filesWithChunks.length) {
+          log(`✔ ${downloaded} legenda(s) exportada(s)!`, 'ok');
+        }
+      }, downloaded * 200);  // stagger downloads
+      downloaded++;
+    }
+  });
+}
+
+// Export single file SRT (called from file list)
+function exportSingleSRT(idx) {
+  const f = files[idx];
+  if (!f || !f.chunks || f.chunks.length === 0) {
+    log('Este arquivo não possui legendas.', 'warntext');
+    return;
+  }
+  const srt = generateSrtContent(f.chunks);
+  if (srt) {
+    const name = f.name.replace(/\.[^.]+$/, '') + '.srt';
+    downloadFile(srt, name, 'application/x-subrip; charset=utf-8');
+    log(`✔ Legenda exportada: <strong>${name}</strong>`, 'ok');
+  }
+}
+
+$('srtBtn').onclick = () => exportSRT();
 
 /* ============================================================
    EXPORT TO DOCX
@@ -1369,12 +2169,13 @@ async function exportDOCX() {
       const rowBg = i % 2 === 0 ? undefined : {type:ShadingType.SOLID, color:LIGHT_BG};
 
       // File name cell with hyperlink to bookmark
+      const docxFileName = f.path ? f.path + '/' + f.name : f.name;
       const fileNameCell = new TableCell({
         width:{size:47,type:WidthType.PERCENTAGE},borders:cellBorders,shading:rowBg,
         children:[new Paragraph({children:[
           new InternalHyperlink({
             anchor: 'file_' + i,
-            children: [new TextRun({text:f.name, size:20, font:'Calibri', color:ACCENT2, underline:{type:'single'}})]
+            children: [new TextRun({text:docxFileName, size:20, font:'Calibri', color:ACCENT2, underline:{type:'single'}})]
           })
         ]})]
       });
@@ -1398,6 +2199,7 @@ async function exportDOCX() {
       const dateStr = new Date(f.lastModified).toLocaleString('pt-BR');
       const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
                       f.size > 1024 ? (f.size/1024).toFixed(0)+' KB' : f.size+' B';
+      const docxFileName = f.path ? f.path + '/' + f.name : f.name;
 
       // Cabeçalho: barra colorida + título
       children.push(accentBar(ACCENT2, 80));
@@ -1408,7 +2210,7 @@ async function exportDOCX() {
             id: 'file_' + i,
             children: [
               new TextRun({text:`${docxIcon(f.type)}  `, size:24, font:'Calibri', color:ACCENT2}),
-              new TextRun({text:f.name, bold:true, size:30, font:'Calibri', color:DARK}),
+              new TextRun({text:docxFileName, bold:true, size:30, font:'Calibri', color:DARK}),
             ]
           })
         ]
