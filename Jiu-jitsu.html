@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#121212">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Jiu-Jitsu Pro</title>
+<link rel="manifest" href="data:application/json,{'name':'Jiu-Jitsu%20Pro','short_name':'BJJ%20Pro','start_url':'.','display':'standalone','background_color':'%23121212','theme_color':'%23121212'}">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',Roboto,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}
+:root,:root[data-theme="dark"]{
+--f:#0c0c0e;--c:#16161a;--c2:#1e1e24;--d:#e8b923;--s:#22c55e;--e:#ef4444;--a:#f97316;
+--t:#f4f4f5;--l:#a1a1aa;--b:#2c2c34;--shadow:0 4px 24px rgba(0,0,0,.35);--input-bg:#0c0c0e
+}
+:root[data-theme="light"]{
+--f:#f4f4f5;--c:#ffffff;--c2:#fafafa;--d:#c9970a;--s:#16a34a;--e:#dc2626;--a:#ea580c;
+--t:#18181b;--l:#71717a;--b:#e4e4e7;--shadow:0 4px 20px rgba(0,0,0,.08);--input-bg:#f4f4f5
+}
+body{background:var(--f);color:var(--t);min-height:100vh;padding:16px;max-width:480px;margin:0 auto;font-size:17px;line-height:1.45;transition:background .25s,color .25s}
+.logo{text-align:center;margin-bottom:14px;position:relative}
+.logo img{max-height:64px;border-radius:12px}
+.theme-btn{position:absolute;right:0;top:0;width:42px;height:42px;border-radius:12px;border:1px solid var(--b);background:var(--c);color:var(--t);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
+h1,h2,h3{font-family:Anton,'Segoe UI',sans-serif;color:var(--d);font-weight:normal;letter-spacing:.02em}
+h1{font-size:1.9rem;text-align:center;margin-bottom:6px;letter-spacing:.06em}
+h2{font-size:1.45rem;margin-bottom:10px}
+h3{font-size:1.15rem;margin-bottom:10px;color:var(--t)}
+.aba{display:none}.aba.ativa{display:block}
+.btn{width:100%;padding:15px 18px;border:none;border-radius:12px;font-size:1.08rem;font-weight:600;cursor:pointer;margin-bottom:10px;transition:transform .1s,opacity .15s}
+.btn:active{transform:scale(.98);opacity:.9}
+.btn-p{background:var(--d);color:#111}.btn-s{background:var(--c);color:var(--t);border:1px solid var(--b)}
+.btn-v{background:transparent;color:var(--l);border:none;text-align:left;padding:8px 0;margin-bottom:10px;font-size:1.02rem;font-weight:500}
+.btn-sm{width:auto;padding:9px 14px;font-size:.92rem;display:inline-block;margin:3px;font-weight:600}
+.btn-x{background:var(--e);color:#fff}.btn-ok{background:var(--s);color:#fff}.btn-a{background:var(--a);color:#fff}
+.cartao{background:var(--c);border-radius:16px;padding:18px;margin-bottom:14px;border:1px solid var(--b);box-shadow:var(--shadow)}
+input,select,textarea{width:100%;padding:14px;margin-bottom:12px;background:var(--input-bg);border:1px solid var(--b);border-radius:10px;color:var(--t);font-size:1.05rem}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--d);box-shadow:0 0 0 3px rgba(232,185,35,.15)}
+.linha{display:flex;gap:8px;flex-wrap:wrap}.linha>*{flex:1;min-width:100px}
+.barra{height:10px;background:var(--b);border-radius:6px;overflow:hidden;margin:8px 0}.barra>div{height:100%;transition:.4s;border-radius:6px}
+.item{padding:12px 0;border-bottom:1px solid var(--b);font-size:1.02rem}.item:last-child{border-bottom:none}
+.etq{display:inline-block;padding:4px 10px;border-radius:8px;font-size:.82rem;margin:3px 2px;font-weight:600}
+.etq-s{background:rgba(34,197,94,.18);color:var(--s)}.etq-e{background:rgba(239,68,68,.15);color:var(--e)}
+.etq-m{background:rgba(59,130,246,.15);color:#3b82f6}.etq-p{background:rgba(34,197,94,.28);color:var(--s)}
+.etq-gi{background:rgba(232,185,35,.18);color:var(--d)}.etq-nogi{background:rgba(168,85,247,.15);color:#a855f7}
+.etq-a{background:rgba(249,115,22,.15);color:var(--a)}.etq-fin{background:rgba(239,68,68,.18);color:var(--e)}
+.area-qr{text-align:center;display:none;padding:10px}.area-qr.mostrar{display:block}
+.area-qr canvas,.area-qr img{background:#fff;padding:12px;border-radius:12px;max-width:100%}
+.status{font-size:.9rem;text-align:center;margin-bottom:10px;padding:8px 12px;border-radius:10px;font-weight:500}
+.status.ok{background:rgba(34,197,94,.12);color:var(--s)}.status.loc{background:rgba(249,115,22,.12);color:var(--a)}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.card{background:var(--c2);border:1px solid var(--b);border-radius:14px;padding:14px;text-align:center}
+.card strong{display:block;font-size:1.55rem;color:var(--d);font-weight:700}.card span{font-size:.88rem;color:var(--l)}
+.tabs{display:flex;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.tab{flex:1;padding:11px 4px;background:var(--c);border:1px solid var(--b);border-radius:10px;text-align:center;font-size:.88rem;cursor:pointer;white-space:nowrap;font-weight:500;color:var(--l)}
+.tab.on{background:var(--d);color:#111;border-color:var(--d);font-weight:700}
+.oculto{display:none!important}
+#reader{max-width:300px;margin:0 auto}
+.aviso{background:var(--c2);padding:12px;border-radius:10px;margin-bottom:8px;border-left:3px solid var(--d);font-size:1rem}
+.help{background:rgba(232,185,35,.08);border:1px dashed var(--d);border-radius:10px;padding:12px;margin-bottom:12px;font-size:.95rem;line-height:1.5}
+small{color:var(--l);font-size:.9rem}.tc{display:block}
+.aula-card{background:var(--c2);border:1px solid var(--b);border-radius:12px;padding:14px;margin-bottom:10px}
+.aula-card h4{color:var(--d);margin-bottom:6px;font-family:Anton,sans-serif;font-size:1.1rem}
+.foto{width:56px;height:56px;border-radius:50%;object-fit:cover;background:var(--b);flex-shrink:0}
+.foto-lg{width:80px;height:80px;border-radius:50%;object-fit:cover;background:var(--b);margin:0 auto 10px;display:block}
+.row{display:flex;gap:12px;align-items:flex-start}
+.alert-box{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:12px;margin-bottom:12px;font-size:1rem}
+.ok-box{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.22);border-radius:12px;padding:12px;margin-bottom:12px;font-size:1rem}
+.live-list{max-height:220px;overflow-y:auto}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;padding:16px;overflow-y:auto;display:none;backdrop-filter:blur(4px)}
+.modal.on{display:block}
+.modal .cartao{max-width:420px;margin:20px auto}
+p{font-size:1.02rem}
+.home-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px;font-size:1.15rem}
+.credito{text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid var(--b);font-size:.9rem;color:var(--l)}
+.credito strong{color:var(--d)}
+#logoSvg{display:block;margin:0 auto 8px;filter:drop-shadow(0 2px 8px rgba(232,185,35,.25))}
+</style>
+</head>
+<body>
+<div class="logo">
+<button type="button" class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Alternar tema">◐</button>
+<svg id="logoSvg" width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#f0c93a"/>
+<stop offset="100%" stop-color="#b8860b"/>
+</linearGradient>
+</defs>
+<!-- fundo arredondado -->
+<rect x="2" y="2" width="76" height="76" rx="20" fill="#121216" stroke="url(#g1)" stroke-width="2"/>
+<!-- no de faixa estilizado (belt knot) -->
+<path d="M18 38h44a4 4 0 0 1 0 8H18a4 4 0 0 1 0-8z" fill="url(#g1)"/>
+<path d="M28 46v14a3 3 0 0 0 3 3h2a3 3 0 0 0 3-3V46" fill="url(#g1)"/>
+<path d="M44 46v14a3 3 0 0 0 3 3h2a3 3 0 0 0 3-3V46" fill="url(#g1)"/>
+<!-- faixa superior fina (grau) -->
+<path d="M24 32h32a2 2 0 0 1 0 4H24a2 2 0 0 1 0-4z" fill="url(#g1)" opacity=".55"/>
+<!-- marca circular no centro do no -->
+<circle cx="40" cy="42" r="5" fill="#121216"/>
+<circle cx="40" cy="42" r="3" fill="url(#g1)"/>
+</svg>
+<img id="logo" class="oculto" alt="">
+<h1>JIU-JITSU PRO</h1>
+<div id="st" class="status loc">Modo Local</div>
+</div>
+
+<div id="ini" class="aba ativa">
+<button class="btn btn-p home-btn" onclick="ir('lp')">Professor</button>
+<button class="btn btn-s home-btn" onclick="ir('la')">Aluno</button>
+<div class="cartao" style="margin-top:14px">
+<h3>Gestao da academia</h3>
+<p style="color:var(--l);line-height:1.55">Presenca por QR, horarios, financeiro, metas por idade e sexo, redutores de graduacao e backup.</p>
+</div>
+<p class="credito">Desenvolvido por <strong>André Faria</strong></p>
+</div>
+
+<div id="lp" class="aba"><button class="btn btn-v" onclick="ir('ini')">← Voltar</button>
+<div class="cartao"><h3>Login Professor</h3>
+<input type="password" id="sp" placeholder="Senha (padrao 123456)" autocomplete="current-password">
+<button class="btn btn-p" onclick="logP()">Entrar</button></div></div>
+
+<div id="la" class="aba"><button class="btn btn-v" onclick="ir('ini')">← Voltar</button>
+<div class="cartao"><h3>Login Aluno</h3>
+<select id="al"></select>
+<input type="password" id="sa" placeholder="Senha" autocomplete="current-password">
+<button class="btn btn-p" onclick="logA()">Entrar</button></div></div>
+
+<div id="pp" class="aba"><button class="btn btn-v" onclick="sair()">← Sair</button><h2>Painel</h2>
+<div class="tabs">
+<div class="tab on" data-t="d" onclick="tab('d')">Inicio</div>
+<div class="tab" data-t="h" onclick="tab('h')">Horarios</div>
+<div class="tab" data-t="a" onclick="tab('a')">Alunos</div>
+<div class="tab" data-t="f" onclick="tab('f')">Financeiro</div>
+<div class="tab" data-t="p" onclick="tab('p')">QR</div>
+<div class="tab" data-t="m" onclick="tab('m')">Metas</div>
+<div class="tab" data-t="c" onclick="tab('c')">Config</div>
+<div class="tab" data-t="b" onclick="tab('b')">Backup</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="td" class="tc">
+<div class="cards">
+<div class="card"><strong id="dt">0</strong><span>Alunos</span></div>
+<div class="card"><strong id="da">0</strong><span>Ativos</span></div>
+<div class="card"><strong id="dp">0</strong><span>Prontos</span></div>
+<div class="card"><strong id="df">0</strong><span>Inadimplentes</span></div>
+</div>
+<div id="alertasDash"></div>
+<div class="cartao"><h3>Aulas de hoje</h3><div id="aulasHoje"></div></div>
+<div class="cartao"><h3>Prontos para graduar</h3><div id="lp2"></div></div>
+<div class="cartao"><h3>Alunos sumidos (15+ dias)</h3><div id="sumidos"></div></div>
+<div class="cartao"><h3>Aniversariantes do mes</h3><div id="niver"></div></div>
+<div class="cartao"><h3>Avisos</h3>
+<textarea id="nav" rows="2" placeholder="Novo aviso para alunos..."></textarea>
+<button class="btn btn-p btn-sm" onclick="addAv()">Publicar</button>
+<div id="lav"></div></div>
+<div class="cartao"><h3>Relatorios</h3>
+<button class="btn btn-s btn-sm" onclick="graf()">Graficos</button>
+<button class="btn btn-p btn-sm" onclick="expT()">TXT</button>
+<button class="btn btn-s btn-sm" onclick="expC()">CSV</button>
+<canvas id="gf" height="150"></canvas><canvas id="gi" height="150"></canvas>
+<div id="res"></div></div>
+</div>
+
+<!-- HORARIOS -->
+<div id="th" class="tc oculto">
+<div class="cartao"><h3>Cadastrar horario</h3>
+<input id="aulaNome" placeholder="Nome (ex: Fundamentals Gi)">
+<div class="linha">
+<select id="aulaDia"><option value="0">Domingo</option><option value="1" selected>Segunda</option><option value="2">Terca</option><option value="3">Quarta</option><option value="4">Quinta</option><option value="5">Sexta</option><option value="6">Sabado</option></select>
+<input type="time" id="aulaHora" value="19:00">
+</div>
+<div class="linha">
+<select id="aulaTipo"><option>Gi</option><option>No-Gi</option><option>Open Mat</option><option>Kids</option><option>Competicao</option></select>
+<input type="number" id="aulaCap" placeholder="Capacidade (opcional)" min="0">
+</div>
+<button class="btn btn-p" onclick="addAula()">Salvar horario</button></div>
+<div class="cartao"><h3>Horarios cadastrados</h3><div id="listaAulas"></div></div>
+</div>
+
+<!-- ALUNOS -->
+<div id="ta" class="tc oculto">
+<div class="cartao"><h3>Novo aluno</h3>
+<input id="nm" placeholder="Nome completo">
+<div class="linha"><input type="date" id="nc" title="Nascimento"><select id="sx"><option>Masculino</option><option>Feminino</option></select></div>
+<input id="fn" placeholder="WhatsApp (so numeros)">
+<input id="emerg" placeholder="Contato emergencia (opcional)">
+<input type="password" id="sn" placeholder="Senha acesso (padrao 1234)">
+<div class="linha">
+<select id="fx"><option>Branca</option><option>Azul</option><option>Roxa</option><option>Marrom</option><option>Preta</option></select>
+<select id="gr"><option value="0">0 grau</option><option value="1">1º</option><option value="2">2º</option><option value="3">3º</option><option value="4">4º</option></select>
+</div>
+<div class="linha">
+<select id="stt"><option>Ativo</option><option>Inativo</option><option>Trancado</option></select>
+<select id="plano"><option value="">Sem plano</option></select>
+</div>
+<input type="date" id="inicio" title="Data inicio">
+<input type="file" id="fotoNovo" accept="image/*" onchange="prevFoto(this,'prevN')">
+<img id="prevN" class="foto oculto" style="margin-bottom:8px">
+<textarea id="ob" rows="2" placeholder="Observacoes / lesoes"></textarea>
+<button class="btn btn-p" onclick="cad()">Cadastrar</button>
+<button class="btn btn-s btn-sm" onclick="document.getElementById('impCsv').click()">Importar CSV</button>
+<button class="btn btn-s btn-sm" onclick="document.getElementById('impPdf').click()">Importar PDF</button>
+<input type="file" id="impCsv" accept=".csv" class="oculto" onchange="importCsv(this)">
+<input type="file" id="impPdf" accept="application/pdf,.pdf" class="oculto" onchange="importPdf(this)">
+<p style="font-size:.95rem;color:var(--l);margin-top:6px">PDF com texto (nao escaneado). Voce confirma a previa antes de cadastrar.</p>
+</div>
+<div class="cartao"><h3>Lista de alunos</h3>
+<input id="bs" placeholder="Buscar nome..." oninput="filt()">
+<div class="linha">
+<select id="fs" onchange="filt()"><option value="">Status</option><option>Ativo</option><option>Inativo</option><option>Trancado</option><option value="pronto">Prontos</option><option value="sumido">Sumidos</option><option value="inad">Inadimplentes</option></select>
+<select id="ff" onchange="filt()"><option value="">Faixa</option><option>Branca</option><option>Azul</option><option>Roxa</option><option>Marrom</option><option>Preta</option></select>
+</div>
+<div id="la2"></div></div>
+</div>
+
+<!-- FINANCEIRO -->
+<div id="tf" class="tc oculto">
+<div class="cartao"><h3>Planos da academia</h3>
+<div class="linha"><input id="plNome" placeholder="Nome do plano"><input type="number" id="plValor" placeholder="Valor R$" step="0.01"></div>
+<button class="btn btn-p btn-sm" onclick="addPlano()">Adicionar plano</button>
+<div id="listaPlanos"></div></div>
+<div class="cartao"><h3>Situacao financeira</h3>
+<select id="filtroFin" onchange="rendFin()"><option value="">Todos</option><option value="ok">Em dia</option><option value="atrasado">Atrasados</option><option value="sem">Sem plano</option></select>
+<div id="listaFin"></div></div>
+</div>
+
+<!-- QR -->
+<div id="tp" class="tc oculto">
+<div class="cartao"><h3>QR de presenca por aula</h3>
+<p style="font-size:1rem;color:var(--l);margin-bottom:10px">Gere um QR exclusivo para a aula de hoje. Valido 90 min.</p>
+<div id="qrAulasLista"></div>
+<div id="qa" class="area-qr">
+<div id="qrWrap"></div>
+<p id="qi" style="margin-top:10px;font-size:1rem"></p>
+<button class="btn btn-s btn-sm" onclick="canQ()">Cancelar QR</button>
+</div></div>
+<div class="cartao"><h3>Presenca ao vivo / manual</h3>
+<div id="liveInfo" style="font-size:1rem;color:var(--l);margin-bottom:10px">Gere um QR para ver a lista ao vivo</div>
+<div id="liveList" class="live-list"></div>
+<select id="manualAluno"><option value="">Marcar presenca manual...</option></select>
+<button class="btn btn-ok btn-sm" onclick="checkManual()">Confirmar manual</button>
+</div>
+</div>
+
+<!-- METAS -->
+<div id="tm" class="tc oculto">
+<div class="cartao">
+<h3>Metas de graduacao</h3>
+<p style="color:var(--l);margin-bottom:12px;font-size:.95rem">Preencha uma linha por regra. O programa usa a linha que bater com a faixa, idade e sexo do aluno. Se nao houver linha especifica, usa a meta padrao da faixa.</p>
+<div style="overflow-x:auto">
+<table style="width:100%;border-collapse:collapse;font-size:.92rem;min-width:320px">
+<thead>
+<tr style="text-align:left;color:var(--l);border-bottom:1px solid var(--b)">
+<th style="padding:6px 4px">Faixa</th>
+<th style="padding:6px 4px">Sexo</th>
+<th style="padding:6px 4px">Idade</th>
+<th style="padding:6px 4px">Pres.</th>
+<th style="padding:6px 4px">Dias</th>
+<th style="padding:6px 4px"></th>
+</tr>
+</thead>
+<tbody id="tabelaMetas"></tbody>
+</table>
+</div>
+<hr style="border:none;border-top:1px solid var(--b);margin:14px 0">
+<h3 style="font-size:1.05rem">Nova meta / editar</h3>
+<input type="hidden" id="mEditId" value="">
+<select id="mFaixa"><option>Branca</option><option>Azul</option><option>Roxa</option><option>Marrom</option><option>Preta</option></select>
+<select id="mSexo"><option value="Todos">Todos</option><option>Masculino</option><option>Feminino</option></select>
+<div class="linha">
+<input type="number" id="mIdMin" placeholder="De (anos)" value="16">
+<input type="number" id="mIdMax" placeholder="Ate (anos)" value="29">
+</div>
+<div class="linha">
+<input type="number" id="mPres" placeholder="Presencas" value="40">
+<input type="number" id="mDias" placeholder="Dias" value="180">
+</div>
+<button class="btn btn-p" id="btnSalvarMeta" onclick="salvarMeta()">Salvar meta</button>
+<button class="btn btn-s btn-sm oculto" id="btnCancelMeta" onclick="cancelEditMeta()">Cancelar edicao</button>
+</div>
+<div class="cartao">
+<h3>Metas padrao (fallback)</h3>
+<p style="color:var(--l);font-size:.95rem;margin-bottom:8px">Usadas se o aluno nao encaixar em nenhuma linha acima.</p>
+<select id="rfaixa"><option>Branca</option><option>Azul</option><option>Roxa</option><option>Marrom</option><option>Preta</option></select>
+<div class="linha"><input type="number" id="rp" value="40" placeholder="Presencas"><input type="number" id="rd" value="180" placeholder="Dias"></div>
+<button class="btn btn-p btn-sm" onclick="savR()">Salvar padrao</button>
+<div id="listaRegrasPadrao" style="margin-top:8px"></div>
+</div>
+<div class="cartao">
+<h3>Redutores do aluno</h3>
+<p style="color:var(--l);font-size:.95rem;margin-bottom:10px">Ex.: doacao de sangue ou competicao. Informe a data e quantos dias descontar da meta. Tambem pode fazer isso na ficha do aluno.</p>
+<select id="redAluno"><option value="">Aluno</option></select>
+<input id="redNome" placeholder="Motivo (ex: Doacao de sangue, Copa estadual)">
+<input type="date" id="redData">
+<input type="number" id="redDias" placeholder="Dias a reduzir" value="5" min="1">
+<button class="btn btn-ok" onclick="aplicarRedutorSimples()">Aplicar redutor</button>
+</div>
+</div>
+
+<!-- CONFIG -->
+<div id="tc" class="tc oculto">
+<div class="cartao"><h3>Logo da academia</h3>
+<input type="file" accept="image/*" onchange="logo(this)">
+<button class="btn btn-s btn-sm" onclick="resetLogo()">Usar logo padrao do app</button>
+</div>
+<div class="cartao"><h3>Senha do professor</h3>
+<input type="password" id="nsp" placeholder="Nova senha (min 4)">
+<button class="btn btn-p btn-sm" onclick="altS()">Salvar senha</button></div>
+<div class="cartao"><h3>Dias para considerar sumido</h3>
+<input type="number" id="diasSumido" value="15" min="7" max="60">
+<button class="btn btn-p btn-sm" onclick="savSumido()">Salvar</button></div>
+<div class="cartao"><h3>Firebase (nuvem)</h3>
+<div class="help">Cole o firebaseConfig para sincronizar entre dispositivos.</div>
+<textarea id="fc" rows="5"></textarea>
+<button class="btn btn-p" onclick="savF()">Conectar</button>
+<button class="btn btn-s btn-sm" onclick="desF()">So local</button></div>
+</div>
+
+<!-- BACKUP -->
+<div id="tb" class="tc oculto">
+<div class="cartao"><h3>Backup</h3>
+<p style="font-size:1rem;color:var(--l);margin-bottom:12px">Baixe o .json e guarde no Drive ou WhatsApp.</p>
+<button class="btn btn-ok" onclick="bak()">Baixar backup</button>
+<button class="btn btn-s" onclick="document.getElementById('rfile').click()">Restaurar backup</button>
+<input type="file" id="rfile" accept=".json" class="oculto" onchange="res(this)">
+<p id="ub" style="font-size:.95rem;color:var(--l);margin-top:10px"></p></div>
+</div>
+</div>
+
+<!-- PERFIL ALUNO -->
+<div id="pa" class="aba"><button class="btn btn-v" onclick="sair()">← Sair</button>
+<div class="cartao" style="text-align:center">
+<img id="fotoPerfil" class="foto-lg oculto" alt="">
+<h2 id="na"></h2>
+<p>Faixa: <span id="fp"></span> <span id="gp"></span></p>
+<p>Categoria: <span id="cp"></span></p>
+<p id="finAluno" style="margin:6px 0"></p>
+<div class="barra"><div id="bp"></div></div>
+<p id="tp2"></p>
+<p id="streak" style="font-size:1rem;margin-top:8px"></p>
+</div>
+<div class="cartao"><h3>Marcar presenca</h3>
+<p style="font-size:1rem;color:var(--l);margin-bottom:10px">Escaneie o QR da aula do professor.</p>
+<div id="reader" class="oculto"></div>
+<button class="btn btn-p" id="bis" onclick="scan()">Abrir scanner</button>
+<button class="btn btn-s oculto" id="bps" onclick="stopS()">Parar</button>
+<button class="btn btn-s btn-sm" onclick="manQ()">Digitar codigo</button>
+</div>
+<div class="cartao"><h3>Avisos</h3><div id="ava"></div></div>
+<div class="cartao"><h3>Historico de faixas</h3><div id="hf"></div>
+<h3 style="margin-top:12px">Presencas</h3><div id="mp"></div></div>
+</div>
+
+<!-- MODAL EDITAR ALUNO -->
+<div id="modalEdit" class="modal">
+<div class="cartao">
+<h3>Editar aluno</h3>
+<input type="hidden" id="eId">
+<input id="eNm" placeholder="Nome">
+<input type="date" id="eNc">
+<input id="eFn" placeholder="WhatsApp">
+<input id="eEm" placeholder="Emergencia">
+<select id="eFx"><option>Branca</option><option>Azul</option><option>Roxa</option><option>Marrom</option><option>Preta</option></select>
+<select id="eGr"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+<select id="eSx"><option>Masculino</option><option>Feminino</option></select>
+<select id="eSt"><option>Ativo</option><option>Inativo</option><option>Trancado</option></select>
+<select id="ePl"></select>
+<select id="eFin"><option value="ok">Em dia</option><option value="atrasado">Atrasado</option></select>
+<input type="password" id="eSn" placeholder="Nova senha (vazio = nao muda)">
+<textarea id="eOb" rows="2" placeholder="Obs"></textarea>
+<input type="file" accept="image/*" onchange="prevFoto(this,'ePrev')">
+<img id="ePrev" class="foto oculto" style="margin-bottom:8px">
+<div id="eRedutores" style="margin:10px 0"></div>
+<button class="btn btn-p" onclick="saveEdit()">Salvar</button>
+<button class="btn btn-s" onclick="closeEdit()">Cancelar</button>
+<button class="btn btn-ok" onclick="promover()">Graduar / dar grau</button>
+</div>
+</div>
+
+<!-- MODAL IMPORT PDF -->
+<div id="modalPdf" class="modal">
+<div class="cartao">
+<h3>Previa da importacao PDF</h3>
+<p id="pdfStatus" style="font-size:1rem;color:var(--l);margin-bottom:10px">Lendo PDF...</p>
+<div id="pdfPreview" style="max-height:50vh;overflow-y:auto;margin-bottom:10px"></div>
+<button class="btn btn-ok" onclick="confirmarPdfImport()">Confirmar e cadastrar</button>
+<button class="btn btn-s" onclick="fecharPdfModal()">Cancelar</button>
+</div>
+</div>
+
+<script>
+let pdfImportBuffer=[];
+const DIAS=['Domingo','Segunda','Terca','Quarta','Quinta','Sexta','Sabado'];
+let FC=null,cfg={senhaProf:'123456',logo:null,ub:null,diasSumido:15};
+let regras={Branca:{prox:'Azul',pres:40,dias:180},Azul:{prox:'Roxa',pres:50,dias:540},Roxa:{prox:'Marrom',pres:60,dias:540},Marrom:{prox:'Preta',pres:70,dias:720},Preta:{prox:'—',pres:0,dias:0}};
+let metasExtra=[],redutorTipos=[
+{id:'doacao',nome:'Doacao de sangue',dias:5,pres:0},
+{id:'est',nome:'Competicao estadual',dias:30,pres:0},
+{id:'nac',nome:'Competicao nacional',dias:60,pres:0},
+{id:'int',nome:'Competicao internacional',dias:90,pres:0}
+];
+let alunos=[],avisos=[],aulas=[],planos=[],qr=null,user=null,g1=null,g2=null,db=null,cloud=false,sc=null,fotoTemp=null;
+
+function loadL(){try{let x;
+if(x=localStorage.getItem('bjj_cfg'))cfg={...cfg,...JSON.parse(x)};
+if(x=localStorage.getItem('bjj_regras'))regras=JSON.parse(x);
+if(x=localStorage.getItem('bjj_metasExtra'))metasExtra=JSON.parse(x);
+if(x=localStorage.getItem('bjj_redutorTipos'))redutorTipos=JSON.parse(x);
+if(x=localStorage.getItem('bjj_alunos'))alunos=JSON.parse(x);
+if(x=localStorage.getItem('bjj_avisos'))avisos=JSON.parse(x);
+if(x=localStorage.getItem('bjj_aulas'))aulas=JSON.parse(x);
+if(x=localStorage.getItem('bjj_planos'))planos=JSON.parse(x);
+if(x=localStorage.getItem('bjj_firebase'))FC=JSON.parse(x);
+if(x=localStorage.getItem('bjj_qr'))qr=JSON.parse(x);
+}catch(e){console.warn(e)}}
+function saveL(){
+localStorage.setItem('bjj_cfg',JSON.stringify(cfg));
+localStorage.setItem('bjj_regras',JSON.stringify(regras));
+localStorage.setItem('bjj_metasExtra',JSON.stringify(metasExtra));
+localStorage.setItem('bjj_redutorTipos',JSON.stringify(redutorTipos));
+localStorage.setItem('bjj_alunos',JSON.stringify(alunos));
+localStorage.setItem('bjj_avisos',JSON.stringify(avisos));
+localStorage.setItem('bjj_aulas',JSON.stringify(aulas));
+localStorage.setItem('bjj_planos',JSON.stringify(planos));
+if(FC)localStorage.setItem('bjj_firebase',JSON.stringify(FC));
+if(qr)localStorage.setItem('bjj_qr',JSON.stringify(qr));else localStorage.removeItem('bjj_qr');
+}
+function save(){saveL();if(cloud)saveC()}
+function saveC(){if(!cloud||!db)return;
+db.ref('bjj/cfg').set(cfg);db.ref('bjj/regras').set(regras);
+db.ref('bjj/metasExtra').set(metasExtra);db.ref('bjj/redutorTipos').set(redutorTipos);
+let m={};alunos.forEach(a=>m[a.id]=a);db.ref('bjj/alunos').set(m);
+db.ref('bjj/avisos').set(avisos);db.ref('bjj/aulas').set(aulas);db.ref('bjj/planos').set(planos);
+if(qr)db.ref('bjj/qr').set(qr);else db.ref('bjj/qr').remove();
+}
+function initF(){if(!FC||!FC.apiKey){cloud=false;st();return}
+try{if(!firebase.apps.length)firebase.initializeApp(FC);db=firebase.database();cloud=true;st();
+db.ref('bjj/cfg').on('value',s=>{if(s.exists()){cfg={...cfg,...s.val()};if(cfg.logo)showL()}});
+db.ref('bjj/regras').on('value',s=>{if(s.exists())regras=s.val()});
+db.ref('bjj/metasExtra').on('value',s=>{metasExtra=s.exists()?(Array.isArray(s.val())?s.val():[]):[];rendMetas()});
+db.ref('bjj/redutorTipos').on('value',s=>{if(s.exists()){let v=s.val();if(Array.isArray(v)&&v.length)redutorTipos=v;rendRedTipos();fillRedSelects()}});
+db.ref('bjj/alunos').on('value',s=>{alunos=[];if(s.exists())s.forEach(c=>{let a=c.val();a.id=c.key;alunos.push(a)});updSel();if(document.getElementById('pp').classList.contains('ativa')){updL();updD();rendFin();fillRedSelects()}});
+db.ref('bjj/avisos').on('value',s=>{avisos=s.exists()?(Array.isArray(s.val())?s.val():[]):[];rendA()});
+db.ref('bjj/aulas').on('value',s=>{aulas=s.exists()?(Array.isArray(s.val())?s.val():[]):[];rendAulas();rendAulasHoje();rendQrLista()});
+db.ref('bjj/planos').on('value',s=>{planos=s.exists()?(Array.isArray(s.val())?s.val():[]):[];rendPlanos();fillPlanosSelect()});
+db.ref('bjj/qr').on('value',s=>{qr=s.exists()?s.val():null;updLive()});
+db.ref('bjj').once('value').then(s=>{if(!s.exists())saveC()});
+}catch(e){cloud=false;st('e');console.error(e)}}
+function st(t){let e=document.getElementById('st');if(t==='e'){e.className='status';e.style.background='rgba(239,68,68,.15)';e.textContent='Erro na nuvem'}else if(cloud){e.className='status ok';e.textContent='Nuvem conectada'}else{e.className='status loc';e.textContent='Modo local'}}
+function ir(id){document.querySelectorAll('.aba').forEach(a=>a.classList.remove('ativa'));document.getElementById(id).classList.add('ativa');if(id==='la'||id==='pp')updSel();if(id==='pp'){tab('d');updD();rendA();rendAulasHoje()}}
+function sair(){user=null;stopS();ir('ini')}
+function tab(n){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));document.querySelector('.tab[data-t="'+n+'"]').classList.add('on');document.querySelectorAll('.tc').forEach(c=>c.classList.add('oculto'));document.getElementById('t'+n).classList.remove('oculto');
+if(n==='a'){updL();fillPlanosSelect()}if(n==='d'){updD();rendAulasHoje()}if(n==='h')rendAulas();if(n==='p'){rendQrLista();updLive();fillManualSelect()}if(n==='f'){rendPlanos();rendFin();fillPlanosSelect()}
+if(n==='m'){rendMetas();fillRedSelects();rendRegrasPadrao()}
+if(n==='b')document.getElementById('ub').textContent=cfg.ub?'Ultimo: '+cfg.ub:'Nenhum backup';
+if(n==='c'){if(FC)document.getElementById('fc').value=JSON.stringify(FC,null,2);document.getElementById('diasSumido').value=cfg.diasSumido||15}}
+function logo(el){let r=new FileReader();r.onload=e=>{cfg.logo=e.target.result;save();showL()};if(el.files[0])r.readAsDataURL(el.files[0])}
+function resetLogo(){cfg.logo=null;save();showL();alert('Logo padrao restaurada')}
+function showL(){let i=document.getElementById('logo'),svg=document.getElementById('logoSvg');
+if(cfg.logo){i.src=cfg.logo;i.classList.remove('oculto');if(svg)svg.style.display='none'}
+else{i.classList.add('oculto');if(svg)svg.style.display='block'}}
+function logP(){if(document.getElementById('sp').value===cfg.senhaProf){user='p';ir('pp')}else alert('Senha errada')}
+function logA(){let id=document.getElementById('al').value,s=document.getElementById('sa').value,a=alunos.find(x=>String(x.id)===String(id)&&x.senha===s);if(a){if(a.status==='Trancado')return alert('Matricula trancada');if(a.status==='Inativo')return alert('Aluno inativo. Fale com o professor.');user=a;ir('pa');perf()}else alert('Dados invalidos')}
+function altS(){let n=document.getElementById('nsp').value.trim();if(n.length<4)return alert('Minimo 4 caracteres');cfg.senhaProf=n;save();alert('Senha alterada')}
+function savSumido(){cfg.diasSumido=+document.getElementById('diasSumido').value||15;save();alert('Salvo');updD()}
+function parseLocalDate(n){if(!n)return null;if(n instanceof Date)return n;let s=String(n).slice(0,10);let p=s.split(/[T\s]/)[0].split('-');if(p.length===3)return new Date(+p[0],+p[1]-1,+p[2]);let q=s.split('/');if(q.length===3)return new Date(+q[2],+q[1]-1,+q[0]);let d=new Date(n);return isNaN(d)?null:d}
+function idade(n){let d=parseLocalDate(n);if(!d)return null;let h=new Date(),i=h.getFullYear()-d.getFullYear(),m=h.getMonth()-d.getMonth();if(m<0||(m===0&&h.getDate()<d.getDate()))i--;return i}
+function cat(n){let i=idade(n);if(i==null)return '-';if(i<16)return 'Kids';if(i<18)return 'Juvenil';if(i<30)return 'Adulto';if(i<=35)return 'Master 1';if(i<=40)return 'Master 2';if(i<=45)return 'Master 3';if(i<=50)return 'Master 4';if(i<=55)return 'Master 5';if(i<=60)return 'Master 6';return 'Master 7'}
+function hojeStr(){let h=new Date();return h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0')+'-'+String(h.getDate()).padStart(2,'0')}
+function diaHoje(){return new Date().getDay()}
+function dataPres(p){return typeof p==='string'?p:(p&&p.data)||''}
+function contPres(a){let desde=(a.dataFaixa||'').slice(0,10);let list=a.presencas||[];if(!desde)return list.length;return list.filter(p=>dataPres(p)>=desde).length}
+function ultimaPres(a){let p=a.presencas||[];if(!p.length)return null;let datas=p.map(dataPres).filter(Boolean).sort();return datas[datas.length-1]||null}
+function diasSemTreinar(a){let u=ultimaPres(a);if(!u){let di=parseLocalDate(a.inicio);if(di)return Math.ceil((Date.now()-di.getTime())/864e5);return 999}let du=parseLocalDate(u);return du?Math.ceil((Date.now()-du.getTime())/864e5):999}
+function isSumido(a){return (a.status||'Ativo')==='Ativo'&&diasSemTreinar(a)>=(cfg.diasSumido||15)}
+function isInad(a){return a.finStatus==='atrasado'}
+function getRegraBase(a){
+let base=regras[a.faixa]?{...regras[a.faixa]}:{prox:'—',pres:0,dias:0};
+let i=idade(a.nasc),sexo=a.sexo||'';
+let cands=metasExtra.filter(m=>m.faixa===a.faixa&&i!=null&&i>=m.idMin&&i<=m.idMax&&(m.sexo==='Todos'||!m.sexo||(sexo&&m.sexo===sexo)));
+if(cands.length){
+cands.sort((x,y)=>{
+let sx=(x.sexo&&x.sexo!=='Todos')?1:0,sy=(y.sexo&&y.sexo!=='Todos')?1:0;if(sy!==sx)return sy-sx;
+return ((x.idMax-x.idMin)-(y.idMax-y.idMin));
+});
+let match=cands[0];base.pres=match.pres;base.dias=match.dias;base.extra=true;
+}
+return base;
+}
+function totalRedutores(a){
+let list=a.redutores||[];
+return{dias:list.reduce((s,r)=>s+(+r.dias||0),0),pres:list.reduce((s,r)=>s+(+r.pres||0),0)};
+}
+function calc(a){
+let r=getRegraBase(a);
+if(!r||r.prox==='—')return{pct:100,fp:0,fd:0,r,ok:false,red:{dias:0,pres:0},presReq:0,diasReq:0};
+let red=totalRedutores(a);
+let presReq=Math.max(0,(+r.pres||0)-red.pres);
+let diasReq=Math.max(0,(+r.dias||0)-red.dias);
+let d0=parseLocalDate(a.dataFaixa)||new Date();let d=Math.max(0,Math.ceil((Date.now()-d0.getTime())/864e5));
+let pp=presReq>0?Math.min(100,(contPres(a)/presReq)*100):100;
+let pd=diasReq>0?Math.min(100,(d/diasReq)*100):100;
+let pct=Math.round((pp+pd)/2);
+return{pct,fp:Math.max(0,presReq-contPres(a)),fd:Math.max(0,diasReq-d),r,ok:pct>=100,red,presReq,diasReq};
+}
+function prevFoto(inp,id){let r=new FileReader();r.onload=e=>{fotoTemp=e.target.result;let img=document.getElementById(id);img.src=fotoTemp;img.classList.remove('oculto')};if(inp.files[0])r.readAsDataURL(inp.files[0])}
+
+/* PLANOS */
+function addPlano(){let n=document.getElementById('plNome').value.trim(),v=+document.getElementById('plValor').value;if(!n||!v)return alert('Nome e valor obrigatorios');planos.push({id:Date.now().toString(),nome:n,valor:v});document.getElementById('plNome').value='';document.getElementById('plValor').value='';save();rendPlanos();fillPlanosSelect()}
+function delPlano(id){if(!confirm('Excluir plano?'))return;planos=planos.filter(p=>p.id!==id);save();rendPlanos();fillPlanosSelect()}
+function rendPlanos(){document.getElementById('listaPlanos').innerHTML=planos.map(p=>`<div class="item"><strong>${p.nome}</strong> — R$ ${Number(p.valor).toFixed(2)}
+<button class="btn btn-s btn-sm" onclick="editPlano('${p.id}')">Editar</button>
+<button class="btn btn-x btn-sm" onclick="delPlano('${p.id}')">X</button></div>`).join('')||'<p style="color:var(--l)">Nenhum plano</p>'}
+function editPlano(id){let p=planos.find(x=>x.id===id);if(!p)return;
+let n=prompt('Nome do plano',p.nome);if(n===null)return;n=n.trim();if(!n)return alert('Nome obrigatorio');
+let v=prompt('Valor R$',p.valor);if(v===null)return;v=+v;if(!v)return alert('Valor invalido');
+p.nome=n;p.valor=v;save();rendPlanos();fillPlanosSelect()}
+function fillPlanosSelect(){let opts='<option value="">Sem plano</option>'+planos.map(p=>`<option value="${p.id}">${p.nome} (R$ ${Number(p.valor).toFixed(2)})</option>`).join('');
+['plano','ePl'].forEach(id=>{let el=document.getElementById(id);if(el){let cur=el.value;el.innerHTML=opts;if(cur)el.value=cur}})}
+function rendFin(){let f=document.getElementById('filtroFin')?.value||'';let L=alunos.filter(a=>{if(f==='ok')return a.finStatus!=='atrasado'&&a.planoId;if(f==='atrasado')return a.finStatus==='atrasado';if(f==='sem')return !a.planoId;return true});
+document.getElementById('listaFin').innerHTML=L.map(a=>{let pl=planos.find(p=>p.id===a.planoId);return `<div class="item"><strong>${a.nome}</strong><br>
+${pl?pl.nome+' — R$ '+Number(pl.valor).toFixed(2):'Sem plano'}
+<span class="etq ${a.finStatus==='atrasado'?'etq-fin':'etq-s'}">${a.finStatus==='atrasado'?'Atrasado':'Em dia'}</span>
+<br><button class="btn btn-sm btn-s" onclick="setFin('${a.id}','ok')">Em dia</button>
+<button class="btn btn-sm btn-a" onclick="setFin('${a.id}','atrasado')">Atrasado</button>
+${a.telefone?`<a class="btn btn-sm btn-s" href="https://wa.me/55${a.telefone}?text=${encodeURIComponent('Ola '+a.nome+', lembrete da mensalidade da academia.')}" target="_blank">WhatsApp</a>`:''}
+</div>`}).join('')||'<p style="color:var(--l)">Nenhum</p>'}
+function setFin(id,st){let a=alunos.find(x=>String(x.id)===String(id));if(!a)return;a.finStatus=st;save();rendFin();updD()}
+
+/* AULAS */
+function delAula(id){if(!confirm('Excluir horario?'))return;aulas=aulas.filter(a=>a.id!==id);save();rendAulas();rendAulasHoje();rendQrLista()}
+function rendAulas(){let ord=[...aulas].sort((a,b)=>a.dia-b.dia||a.hora.localeCompare(b.hora));
+document.getElementById('listaAulas').innerHTML=ord.map(a=>`<div class="aula-card"><h4>${a.nome}</h4>
+<span class="etq etq-m">${DIAS[a.dia]}</span> <span class="etq etq-gi">${a.hora}</span>
+<span class="etq ${a.tipo==='No-Gi'?'etq-nogi':'etq-gi'}">${a.tipo}</span>
+${a.cap?`<span class="etq etq-m">max ${a.cap}</span>`:''}
+<br><button class="btn btn-s btn-sm" onclick="editAula('${a.id}')">Editar</button>
+<button class="btn btn-x btn-sm" onclick="delAula('${a.id}')">Excluir</button></div>`).join('')||'<p style="color:var(--l)">Nenhum horario</p>'}
+let aulaEditId=null;
+function editAula(id){let a=aulas.find(x=>x.id===id);if(!a)return;
+aulaEditId=a.id;
+document.getElementById('aulaNome').value=a.nome;
+document.getElementById('aulaDia').value=a.dia;
+document.getElementById('aulaHora').value=a.hora;
+document.getElementById('aulaTipo').value=a.tipo||'Gi';
+document.getElementById('aulaCap').value=a.cap||'';
+let btn=document.querySelector('#th .btn-p');
+if(btn)btn.textContent='Salvar alteracoes';
+}
+function addAula(){
+let nome=document.getElementById('aulaNome').value.trim();if(!nome)return alert('Nome da turma');
+let dados={nome,dia:+document.getElementById('aulaDia').value,hora:document.getElementById('aulaHora').value,tipo:document.getElementById('aulaTipo').value,cap:+document.getElementById('aulaCap').value||0};
+if(aulaEditId){let a=aulas.find(x=>x.id===aulaEditId);if(a)Object.assign(a,dados);aulaEditId=null}
+else{dados.id=Date.now().toString();aulas.push(dados)}
+document.getElementById('aulaNome').value='';document.getElementById('aulaCap').value='';
+let btn=document.querySelector('#th .btn-p');if(btn)btn.textContent='Salvar horario';
+save();rendAulas();rendAulasHoje();rendQrLista();alert('Horario salvo')}
+function aulasDoDia(d){return aulas.filter(a=>a.dia===d).sort((a,b)=>a.hora.localeCompare(b.hora))}
+function rendAulasHoje(){let lista=aulasDoDia(diaHoje());
+document.getElementById('aulasHoje').innerHTML=lista.map(a=>`<div class="aula-card"><h4>${a.hora} — ${a.nome}</h4>
+<span class="etq ${a.tipo==='No-Gi'?'etq-nogi':'etq-gi'}">${a.tipo}</span>
+<button class="btn btn-p btn-sm" onclick="genQ('${a.id}');tab('p')">Gerar QR</button></div>`).join('')||'<p style="color:var(--l)">Nenhuma aula hoje</p>'}
+function rendQrLista(){let lista=aulasDoDia(diaHoje());
+document.getElementById('qrAulasLista').innerHTML=lista.map(a=>`<div class="aula-card"><h4>${a.hora} — ${a.nome}</h4>
+<span class="etq ${a.tipo==='No-Gi'?'etq-nogi':'etq-gi'}">${a.tipo}</span>
+<button class="btn btn-p btn-sm" onclick="genQ('${a.id}')">Gerar QR desta aula</button></div>`).join('')||'<p style="color:var(--l)">Cadastre horarios na aba Horarios</p>'}
+
+/* QR */
+function genQ(aulaId){let aula=aulas.find(a=>a.id===aulaId);if(!aula)return alert('Aula nao encontrada');
+let cod='bjj_'+aulaId+'_'+hojeStr()+'_'+Math.random().toString(36).slice(2,9);
+qr={cod,exp:Date.now()+90*60*1000,aulaId:aula.id,aulaNome:aula.nome,aulaTipo:aula.tipo,aulaHora:aula.hora,data:hojeStr(),checkins:[]};
+save();document.getElementById('qa').classList.add('mostrar');
+let wrap=document.getElementById('qrWrap');wrap.innerHTML='';
+let canvas=document.createElement('canvas');wrap.appendChild(canvas);
+if(typeof QRCode!=='undefined'&&QRCode.toCanvas){
+QRCode.toCanvas(canvas,cod,{width:220,margin:2},err=>{if(err){console.error(err);fallbackQR(cod,wrap)}});
+}else fallbackQR(cod,wrap);
+document.getElementById('qi').innerHTML='<strong>'+aula.nome+'</strong> ('+aula.tipo+')<br>'+aula.hora+' — '+hojeStr()+'<br><small style="word-break:break-all">'+cod+'</small><br>Valido 90 min';
+updLive();
+}
+function fallbackQR(cod,wrap){wrap.innerHTML='<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(cod)+'" width="220" height="220" alt="QR" style="background:#fff;padding:10px;border-radius:8px">'}
+function canQ(){qr=null;save();document.getElementById('qa').classList.remove('mostrar');document.getElementById('qrWrap').innerHTML='';updLive()}
+function updLive(){
+let info=document.getElementById('liveInfo'),list=document.getElementById('liveList');
+if(!info)return;
+if(!qr||Date.now()>qr.exp){info.textContent='Nenhum QR ativo no momento';list.innerHTML='';return}
+let checks=qr.checkins||[];
+info.innerHTML='<strong>'+qr.aulaNome+'</strong> — '+(checks.length)+' presente(s)';
+list.innerHTML=checks.map(c=>`<div class="item">${c.nome} <small>${c.hora||''}</small></div>`).join('')||'<p style="color:var(--l)">Aguardando check-ins...</p>';
+}
+function fillManualSelect(){document.getElementById('manualAluno').innerHTML='<option value="">Marcar presenca manual...</option>'+alunos.filter(a=>(a.status||'Ativo')==='Ativo').map(a=>`<option value="${a.id}">${a.nome}</option>`).join('')}
+function checkManual(){
+if(!qr||Date.now()>qr.exp)return alert('Gere um QR ativo primeiro');
+let id=document.getElementById('manualAluno').value;if(!id)return alert('Selecione o aluno');
+let a=alunos.find(x=>String(x.id)===String(id));if(!a)return;
+registrarPresenca(a,true);
+}
+function registrarPresenca(aluno,manual){
+if(!qr||Date.now()>qr.exp)return alert('QR expirado');
+let hj=hojeStr();
+aluno.presencas=aluno.presencas||[];
+let ja=aluno.presencas.some(p=>{if(typeof p==='string')return p===hj&&!qr.aulaId;return p.data===hj&&p.aulaId===qr.aulaId});
+if(ja)return alert(aluno.nome+' ja tem presenca nesta aula hoje');
+aluno.presencas.push({data:hj,aulaId:qr.aulaId,aulaNome:qr.aulaNome,tipo:qr.aulaTipo,hora:qr.aulaHora,manual:!!manual});
+qr.checkins=qr.checkins||[];
+if(!qr.checkins.some(c=>c.id===aluno.id))qr.checkins.push({id:aluno.id,nome:aluno.nome,hora:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})});
+let i=alunos.findIndex(x=>String(x.id)===String(aluno.id));if(i>=0)alunos[i]=aluno;
+save();updLive();if(user&&user!=='p'&&String(user.id)===String(aluno.id)){user=aluno;perf()}
+alert('Presenca OK: '+aluno.nome);
+}
+let scanLock=false;
+function marca(cod){if(!user||user==='p')return;if(scanLock)return;if(!qr||Date.now()>qr.exp)return alert('QR expirado');if(cod!==qr.cod)return alert('Codigo invalido');scanLock=true;try{registrarPresenca(user,false)}finally{setTimeout(()=>{scanLock=false},1500);stopS()}}
+function manQ(){let c=prompt('Codigo do QR:');if(c)marca(c.trim())}
+function scan(){scanLock=false;document.getElementById('reader').classList.remove('oculto');document.getElementById('bis').classList.add('oculto');document.getElementById('bps').classList.remove('oculto');
+try{sc=new Html5Qrcode('reader');sc.start({facingMode:'environment'},{fps:8,qrbox:{width:220,height:220}},d=>marca(d),()=>{}).catch(()=>{alert('Camera indisponivel. Use digitar codigo.');stopS()})}catch(e){alert('Scanner indisponivel');stopS()}}
+function stopS(){if(sc){try{sc.stop().then(()=>{sc.clear();sc=null}).catch(()=>{})}catch(e){}}document.getElementById('reader').classList.add('oculto');document.getElementById('bis').classList.remove('oculto');document.getElementById('bps').classList.add('oculto')}
+
+/* ALUNOS */
+function cad(){let nome=document.getElementById('nm').value.trim();if(!nome)return alert('Informe o nome');
+let id=Date.now().toString();
+let a={id,nome,nasc:document.getElementById('nc').value,sexo:document.getElementById('sx').value,
+telefone:document.getElementById('fn').value.replace(/\D/g,''),emergencia:document.getElementById('emerg').value,
+senha:document.getElementById('sn').value||'1234',faixa:document.getElementById('fx').value,
+grau:+document.getElementById('gr').value||0,status:document.getElementById('stt').value,
+planoId:document.getElementById('plano').value||'',finStatus:'ok',inicio:document.getElementById('inicio').value||hojeStr(),
+dataFaixa:new Date().toISOString(),presencas:[],
+historico:[{faixa:document.getElementById('fx').value,grau:+document.getElementById('gr').value||0,data:new Date().toLocaleDateString('pt-BR')}],
+obs:document.getElementById('ob').value,foto:fotoTemp||null};
+alunos.push(a);fotoTemp=null;document.getElementById('prevN').classList.add('oculto');
+['nm','fn','emerg','sn','ob'].forEach(i=>document.getElementById(i).value='');
+save();alert('Cadastrado! '+cat(a.nasc));updL();updD()}
+function updSel(){document.getElementById('al').innerHTML='<option value="">Selecione</option>'+alunos.filter(a=>(a.status||'Ativo')==='Ativo').map(a=>`<option value="${a.id}">${a.nome} — ${a.faixa}</option>`).join('')}
+function updL(){let f=(document.getElementById('bs')?.value||'').toLowerCase(),sf=document.getElementById('fs')?.value||'',ff=document.getElementById('ff')?.value||'';
+let L=alunos.filter(a=>a.nome.toLowerCase().includes(f));
+if(sf==='pronto')L=L.filter(a=>calc(a).ok&&(a.status||'Ativo')==='Ativo');
+else if(sf==='sumido')L=L.filter(isSumido);
+else if(sf==='inad')L=L.filter(isInad);
+else if(sf)L=L.filter(a=>(a.status||'Ativo')===sf);
+if(ff)L=L.filter(a=>a.faixa===ff);
+document.getElementById('la2').innerHTML=L.map(a=>{let p=calc(a),c=cat(a.nasc),st=a.status||'Ativo';
+return `<div class="item"><div class="row">${a.foto?`<img src="${a.foto}" class="foto">`:''}<div style="flex:1">
+<strong>${a.nome}</strong><br>${a.faixa}${a.grau?' '+a.grau+'º':''} · ${contPres(a)} pres
+<br><span class="etq ${st==='Ativo'?'etq-s':'etq-e'}">${st}</span>
+<span class="etq etq-m">${c}</span>
+${p.ok?'<span class="etq etq-p">PRONTO</span>':''}
+${isInad(a)?'<span class="etq etq-fin">ATRASADO</span>':''}
+${isSumido(a)?'<span class="etq etq-a">SUMIDO</span>':''}
+<div class="barra"><div style="width:${p.pct}%;background:${p.pct>=100?'var(--s)':'var(--d)'}"></div></div>
+<small>${p.r&&p.r.prox!=='—'?'Faltam '+p.fp+' aulas / '+p.fd+' dias'+(p.red&&(p.red.dias||p.red.pres)?' (redutor −'+p.red.dias+'d/−'+p.red.pres+'p)':'')+(p.r.extra?' · meta por idade/sexo':''):'Max'}</small>
+<br><button class="btn btn-s btn-sm" onclick="openEdit('${a.id}')">Editar</button>
+${a.telefone?`<a class="btn btn-s btn-sm" href="https://wa.me/55${a.telefone}" target="_blank">WA</a>`:''}
+<button class="btn btn-x btn-sm" onclick="del('${a.id}')">Excluir</button>
+</div></div></div>`}).join('')||'<p style="color:var(--l)">Nenhum</p>'}
+function filt(){updL()}
+function openEdit(id){let a=alunos.find(x=>String(x.id)===String(id));if(!a)return;fillPlanosSelect();
+document.getElementById('eId').value=a.id;document.getElementById('eNm').value=a.nome;
+document.getElementById('eNc').value=a.nasc||'';document.getElementById('eFn').value=a.telefone||'';
+document.getElementById('eEm').value=a.emergencia||'';document.getElementById('eFx').value=a.faixa;
+document.getElementById('eGr').value=a.grau||0;
+let esx=document.getElementById('eSx');if(esx)esx.value=a.sexo||'Masculino';
+document.getElementById('eSt').value=a.status||'Ativo';
+document.getElementById('ePl').value=a.planoId||'';document.getElementById('eFin').value=a.finStatus||'ok';
+document.getElementById('eSn').value='';document.getElementById('eOb').value=a.obs||'';
+fotoTemp=a.foto||null;let prev=document.getElementById('ePrev');if(a.foto){prev.src=a.foto;prev.classList.remove('oculto')}else prev.classList.add('oculto');
+let p=calc(a);
+let redHtml=(a.redutores||[]).map(r=>`<div class="item"><strong>${r.nome}</strong> · ${r.data||''} · −${r.dias} dias
+<button class="btn btn-s btn-sm" onclick="editRedutorAluno('${a.id}','${r.id}')">Editar</button>
+<button class="btn btn-x btn-sm" onclick="delRedutorAluno('${a.id}','${r.id}')">X</button></div>`).join('')||'<p style="color:var(--l);font-size:.95rem">Nenhum redutor</p>';
+document.getElementById('eRedutores').innerHTML=`<h3 style="margin-top:8px">Redutores</h3>
+<p style="font-size:.9rem;color:var(--l);margin-bottom:8px">Meta efetiva: ${p.presReq} presencas / ${p.diasReq} dias</p>
+${redHtml}
+<hr style="border:none;border-top:1px solid var(--b);margin:10px 0">
+<input id="eRedNome" placeholder="Motivo (doacao, competicao...)">
+<input type="date" id="eRedData">
+<input type="number" id="eRedDias" placeholder="Dias a reduzir" value="5" min="1">
+<button class="btn btn-ok btn-sm" onclick="addRedutorNaFicha('${a.id}')">Adicionar redutor</button>`;
+document.getElementById('modalEdit').classList.add('on')}
+function addRedutorNaFicha(aid){
+let a=alunos.find(x=>String(x.id)===String(aid));if(!a)return;
+let nome=(document.getElementById('eRedNome')?.value||'').trim();
+let data=document.getElementById('eRedData')?.value||'';
+let dias=+(document.getElementById('eRedDias')?.value||0);
+if(!nome)return alert('Informe o motivo');
+if(!dias)return alert('Informe os dias');
+a.redutores=a.redutores||[];
+a.redutores.push({id:Date.now().toString(),nome,dias,pres:0,data:data?data.split('-').reverse().join('/'):new Date().toLocaleDateString('pt-BR')});
+save();updL();updD();openEdit(aid);alert('Redutor adicionado (−'+dias+' dias)')}
+function closeEdit(){document.getElementById('modalEdit').classList.remove('on');fotoTemp=null}
+function saveEdit(){let id=document.getElementById('eId').value,a=alunos.find(x=>String(x.id)===String(id));if(!a)return;
+a.nome=document.getElementById('eNm').value.trim()||a.nome;a.nasc=document.getElementById('eNc').value;
+a.telefone=document.getElementById('eFn').value.replace(/\D/g,'');a.emergencia=document.getElementById('eEm').value;
+let esx=document.getElementById('eSx');if(esx)a.sexo=esx.value;
+let nf=document.getElementById('eFx').value,ng=+document.getElementById('eGr').value||0;
+let mudouFaixa=nf!==a.faixa,mudouGrau=ng!==(a.grau||0);
+if(mudouFaixa||mudouGrau){
+a.historico=a.historico||[];
+a.historico.push({faixa:nf,grau:ng,data:new Date().toLocaleDateString('pt-BR')});
+a.faixa=nf;a.grau=ng;
+if(mudouFaixa)a.dataFaixa=new Date().toISOString();
+}
+a.status=document.getElementById('eSt').value;a.planoId=document.getElementById('ePl').value;a.finStatus=document.getElementById('eFin').value;
+let ns=document.getElementById('eSn').value;if(ns)a.senha=ns;a.obs=document.getElementById('eOb').value;
+if(fotoTemp)a.foto=fotoTemp;save();closeEdit();updL();updD();rendFin();alert('Salvo')}
+function promover(){let id=document.getElementById('eId').value,a=alunos.find(x=>String(x.id)===String(id));if(!a)return;
+if(a.grau<4){a.grau=(a.grau||0)+1;a.historico=a.historico||[];a.historico.push({faixa:a.faixa,grau:a.grau,data:new Date().toLocaleDateString('pt-BR')});alert('Grau '+a.grau+' concedido!')}
+else{let r=regras[a.faixa];if(r&&r.prox&&r.prox!=='—'){a.faixa=r.prox;a.grau=0;a.dataFaixa=new Date().toISOString();a.historico=a.historico||[];a.historico.push({faixa:a.faixa,grau:0,data:new Date().toLocaleDateString('pt-BR')});alert('Promovido para '+a.faixa+'!')}else alert('Ja esta na faixa maxima')}
+document.getElementById('eFx').value=a.faixa;document.getElementById('eGr').value=a.grau;save();updL();updD()}
+function del(id){if(!confirm('Excluir aluno?'))return;alunos=alunos.filter(a=>String(a.id)!==String(id));save();updL();updD();rendFin()}
+function importCsv(inp){let f=inp.files[0];if(!f)return;let r=new FileReader();r.onload=e=>{
+let lines=e.target.result.split(/\r?\n/).filter(l=>l.trim());let start=lines[0].toLowerCase().includes('nome')?1:0;let n=0;
+for(let i=start;i<lines.length;i++){let cols=lines[i].split(',').map(c=>c.replace(/^"|"$/g,'').trim());if(!cols[0])continue;
+alunos.push({id:Date.now()+'_'+i,nome:cols[0],faixa:cols[1]||'Branca',grau:+cols[2]||0,status:cols[3]||'Ativo',telefone:(cols[4]||'').replace(/\D/g,''),senha:'1234',presencas:[],historico:[{faixa:cols[1]||'Branca',grau:+cols[2]||0,data:new Date().toLocaleDateString('pt-BR')}],dataFaixa:new Date().toISOString(),finStatus:'ok'});n++}
+save();updL();updD();alert(n+' alunos importados')};r.readAsText(f);inp.value=''}
+
+function normalizaFaixa(t){if(!t)return'Branca';t=String(t).toLowerCase();
+if(t.includes('pret')||t.includes('black'))return'Preta';if(t.includes('marr')||t.includes('brown'))return'Marrom';
+if(t.includes('rox')||t.includes('purp'))return'Roxa';if(t.includes('azul')||t.includes('blue'))return'Azul';
+if(t.includes('bran')||t.includes('white'))return'Branca';return'Branca'}
+function extraiTelefone(t){if(!t)return'';let d=String(t).replace(/\D/g,'');if(d.length>=10&&d.length<=13)return d.slice(-11);return d.length>=8?d:''}
+function extraiData(t){if(!t)return'';let m=String(t).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+if(m){let a=m[3].length===2?'20'+m[3]:m[3];return a.padStart(4,'0')+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')}
+m=String(t).match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');return''}
+function extraiGrau(t){if(!t)return 0;let m=String(t).match(/([0-4])\s*(\º|°|o)?\s*(grau|stripe|g\.?)?/i);if(m)return +m[1];m=String(t).match(/\b([0-4])\b/);return m?+m[1]:0}
+function pareceNome(t){if(!t||t.length<3||t.length>60)return false;if(/^\d+$/.test(t))return false;if(!/[a-zA-ZÀ-ú]{2,}/.test(t))return false;
+if(/^(nome|faixa|telefone|whatsapp|nascimento|data|status|grau|idade|sexo|endereco|email|cpf|rg|plano|obs)/i.test(t))return false;return true}
+
+function parsePdfText(texto){
+let linhas=texto.split(/\r?\n/).map(l=>l.replace(/\s+/g,' ').trim()).filter(l=>l.length>2);
+let resultados=[];
+// 1) tenta linhas tipo tabela separadas por | ; tab ou 2+ espacos
+for(let l of linhas){
+let cols=l.includes('|')?l.split('|'):l.includes(';')?l.split(';'):l.includes('\t')?l.split('\t'):l.split(/\s{2,}/);
+cols=cols.map(c=>c.trim()).filter(Boolean);
+if(cols.length<1)continue;
+let nome=cols[0];if(!pareceNome(nome))continue;
+let faixa='Branca',grau=0,tel='',nasc='',status='Ativo';
+for(let c of cols.slice(1)){
+let low=c.toLowerCase();
+if(/branca|azul|roxa|marrom|preta|white|blue|purple|brown|black/.test(low))faixa=normalizaFaixa(c);
+else if(/ativo|inativo|trancado/.test(low))status=low.includes('inat')?'Inativo':low.includes('tranc')?'Trancado':'Ativo';
+else if(extraiTelefone(c).length>=10)tel=extraiTelefone(c);
+else if(extraiData(c))nasc=extraiData(c);
+else if(/grau|stripe|\d\s*º/.test(low)||/^[0-4]$/.test(c))grau=extraiGrau(c);
+}
+if(resultados.some(r=>r.nome.toLowerCase()===nome.toLowerCase()))continue;
+resultados.push({nome,faixa,grau,telefone:tel,nasc,status});
+}
+// 2) se pouco resultado, tenta blocos "Nome: X / Telefone: Y"
+if(resultados.length<2){
+let blocos=texto.split(/\n\s*\n/);
+for(let b of blocos){
+let nomeM=b.match(/(?:nome|aluno)\s*[:\-]\s*(.+)/i);
+let telM=b.match(/(?:tel|fone|whats?app|celular)\s*[:\-]\s*([\d\s\(\)\-\+]+)/i);
+let faixaM=b.match(/(?:faixa|belt)\s*[:\-]\s*(\w+)/i);
+let nascM=b.match(/(?:nasc|data(?:\s*de)?\s*nasc)\s*[:\-]\s*([\d\/\-\.]+)/i);
+let grauM=b.match(/(?:grau|stripe)\s*[:\-]\s*([0-4])/i);
+if(nomeM&&pareceNome(nomeM[1].trim())){
+let nome=nomeM[1].trim().split('\n')[0].trim();
+if(resultados.some(r=>r.nome.toLowerCase()===nome.toLowerCase()))continue;
+resultados.push({nome,faixa:normalizaFaixa(faixaM?faixaM[1]:'Branca'),grau:grauM?+grauM[1]:0,telefone:telM?extraiTelefone(telM[1]):'',nasc:nascM?extraiData(nascM[1]):'',status:'Ativo'});
+}
+}
+}
+// 3) ultima tentativa: linhas com nome + telefone na mesma linha
+if(resultados.length<1){
+for(let l of linhas){
+let telM=l.match(/(\(?\d{2}\)?\s*\d{4,5}[\-\s]?\d{4})/);
+if(!telM)continue;
+let nome=l.replace(telM[0],'').replace(/[\|\t;]+/g,' ').trim();
+nome=nome.replace(/\b(branca|azul|roxa|marrom|preta)\b/ig,'').trim();
+if(!pareceNome(nome))continue;
+if(resultados.some(r=>r.nome.toLowerCase()===nome.toLowerCase()))continue;
+resultados.push({nome,faixa:normalizaFaixa(l),grau:extraiGrau(l),telefone:extraiTelefone(telM[1]),nasc:extraiData(l),status:'Ativo'});
+}
+}
+return resultados;
+}
+
+async function importPdf(inp){
+let f=inp.files[0];if(!f)return;inp.value='';
+if(typeof pdfjsLib==='undefined'){alert('Biblioteca PDF nao carregou. Verifique a internet e tente de novo.');return}
+document.getElementById('pdfStatus').textContent='Lendo PDF...';
+document.getElementById('pdfPreview').innerHTML='';
+document.getElementById('modalPdf').classList.add('on');
+pdfImportBuffer=[];
+try{
+let buf=await f.arrayBuffer();
+let pdf=await pdfjsLib.getDocument({data:buf}).promise;
+let texto='';
+for(let i=1;i<=pdf.numPages;i++){
+let page=await pdf.getPage(i);
+let content=await page.getTextContent();
+// agrupa por Y aproximado para formar linhas
+let items=content.items.map(it=>({str:it.str,x:it.transform[4],y:Math.round(it.transform[5])}));
+items.sort((a,b)=>b.y-a.y||a.x-b.x);
+let lines=[],curY=null,cur='';
+for(let it of items){
+if(curY===null||Math.abs(it.y-curY)>3){if(cur.trim())lines.push(cur.trim());cur=it.str;curY=it.y}
+else cur+=' '+it.str;
+}
+if(cur.trim())lines.push(cur.trim());
+texto+=lines.join('\n')+'\n\n';
+}
+pdfImportBuffer=parsePdfText(texto);
+if(!pdfImportBuffer.length){
+document.getElementById('pdfStatus').textContent='Nenhum aluno detectado. O PDF precisa ter texto selecionavel (nao ser so imagem escaneada).';
+return;
+}
+document.getElementById('pdfStatus').textContent=pdfImportBuffer.length+' aluno(s) detectado(s). Revise e confirme:';
+document.getElementById('pdfPreview').innerHTML=pdfImportBuffer.map((a,i)=>`<div class="item">
+<strong>${i+1}. ${a.nome}</strong><br>
+Faixa: ${a.faixa}${a.grau?' '+a.grau+'º':''} · Tel: ${a.telefone||'-'} · Nasc: ${a.nasc||'-'} · ${a.status}
+</div>`).join('');
+}catch(err){console.error(err);document.getElementById('pdfStatus').textContent='Erro ao ler o PDF: '+(err.message||err)}
+}
+function fecharPdfModal(){document.getElementById('modalPdf').classList.remove('on');pdfImportBuffer=[]}
+function confirmarPdfImport(){
+if(!pdfImportBuffer.length)return fecharPdfModal();
+let n=0;
+pdfImportBuffer.forEach((a,i)=>{
+if(alunos.some(x=>x.nome.toLowerCase()===a.nome.toLowerCase()))return;
+alunos.push({id:Date.now()+'_pdf_'+i,nome:a.nome,faixa:a.faixa||'Branca',grau:a.grau||0,status:a.status||'Ativo',
+telefone:a.telefone||'',nasc:a.nasc||'',senha:'1234',presencas:[],finStatus:'ok',
+historico:[{faixa:a.faixa||'Branca',grau:a.grau||0,data:new Date().toLocaleDateString('pt-BR')}],
+dataFaixa:new Date().toISOString(),inicio:hojeStr()});
+n++;
+});
+save();updL();updD();updSel();fecharPdfModal();
+alert(n+' aluno(s) cadastrado(s) a partir do PDF'+(pdfImportBuffer.length-n?' ('+(pdfImportBuffer.length-n)+' ja existiam)':''));
+}
+
+/* DASHBOARD */
+function updD(){let t=alunos.length,at=alunos.filter(a=>(a.status||'Ativo')==='Ativo').length,pr=alunos.filter(a=>calc(a).ok&&(a.status||'Ativo')==='Ativo'),inad=alunos.filter(isInad);
+document.getElementById('dt').textContent=t;document.getElementById('da').textContent=at;document.getElementById('dp').textContent=pr.length;document.getElementById('df').textContent=inad.length;
+document.getElementById('lp2').innerHTML=pr.map(a=>`<div class="item"><strong>${a.nome}</strong> ${a.faixa} → ${regras[a.faixa]?.prox||''}
+<button class="btn btn-ok btn-sm" onclick="openEdit('${a.id}')">Graduar</button></div>`).join('')||'<p style="color:var(--l)">Nenhum</p>';
+let sum=alunos.filter(isSumido);
+document.getElementById('sumidos').innerHTML=sum.map(a=>`<div class="item"><strong>${a.nome}</strong> — ${diasSemTreinar(a)} dias
+${a.telefone?`<a class="btn btn-a btn-sm" href="https://wa.me/55${a.telefone}?text=${encodeURIComponent('Ola '+a.nome+', sentimos sua falta nos treinos! Tudo bem?')}" target="_blank">Chamar</a>`:''}</div>`).join('')||'<p style="color:var(--l)">Nenhum sumido</p>';
+let mes=new Date().getMonth(),niv=alunos.filter(a=>{if(!a.nasc)return false;return new Date(a.nasc).getMonth()===mes});
+document.getElementById('niver').innerHTML=niv.map(a=>`<div class="item">${a.nome} — ${new Date(a.nasc).getDate()}/${mes+1}</div>`).join('')||'<p style="color:var(--l)">Nenhum este mes</p>';
+let alerts='';
+if(pr.length)alerts+=`<div class="ok-box">${pr.length} aluno(s) prontos para graduar</div>`;
+if(sum.length)alerts+=`<div class="alert-box">${sum.length} aluno(s) sumidos ha ${(cfg.diasSumido||15)}+ dias</div>`;
+if(inad.length)alerts+=`<div class="alert-box">${inad.length} inadimplente(s)</div>`;
+document.getElementById('alertasDash').innerHTML=alerts;
+}
+function addAv(){let t=document.getElementById('nav').value.trim();if(!t)return;avisos.unshift({id:Date.now(),texto:t,data:new Date().toLocaleString('pt-BR')});if(avisos.length>25)avisos.length=25;document.getElementById('nav').value='';save();rendA()}
+function rendA(){let h=(avisos||[]).map(a=>`<div class="aviso"><small>${a.data}</small><br>${a.texto}${user==='p'?` <button class="btn btn-x btn-sm" onclick="delA(${a.id})">X</button>`:''}</div>`).join('')||'<p style="color:var(--l)">Nenhum</p>';
+let e1=document.getElementById('lav'),e2=document.getElementById('ava');if(e1)e1.innerHTML=h;if(e2)e2.innerHTML=h}
+function delA(id){avisos=avisos.filter(a=>a.id!==id);save();rendA()}
+function graf(){let cf={Branca:0,Azul:0,Roxa:0,Marrom:0,Preta:0},ci={Adulto:0,Master:0,Kids:0};alunos.forEach(a=>{if(cf[a.faixa]!=null)cf[a.faixa]++;let c=cat(a.nasc);if(c==='Adulto')ci.Adulto++;else if(c.includes('Master'))ci.Master++;else ci.Kids++});
+if(g1)g1.destroy();g1=new Chart(document.getElementById('gf'),{type:'bar',data:{labels:Object.keys(cf),datasets:[{data:Object.values(cf),backgroundColor:['#fff','#60A5FA','#A78BFA','#F97316','#333']}]},options:{plugins:{legend:{display:false}}}});
+if(g2)g2.destroy();g2=new Chart(document.getElementById('gi'),{type:'doughnut',data:{labels:Object.keys(ci),datasets:[{data:Object.values(ci),backgroundColor:['#22C55E','#3B82F6','#EF4444']}]}});
+document.getElementById('res').innerHTML='Total: '+alunos.length+' | Ativos: '+alunos.filter(a=>(a.status||'Ativo')==='Ativo').length}
+function expT(){let t='RELATORIO JIU-JITSU\n'+new Date().toLocaleString('pt-BR')+'\n\n';alunos.forEach(a=>{let p=calc(a);t+=`${a.nome} | ${a.faixa} ${a.grau||0}º | ${cat(a.nasc)} | ${a.status} | ${contPres(a)} pres | ${p.pct}% | fin:${a.finStatus||'ok'}\n`});dl(t,'relatorio.txt','text/plain')}
+function expC(){let c='Nome,Faixa,Grau,Status,Categoria,Presencas,Progresso,Telefone,Financeiro\n';alunos.forEach(a=>{let p=calc(a);c+=`"${a.nome}","${a.faixa}",${a.grau||0},"${a.status||'Ativo'}","${cat(a.nasc)}",${contPres(a)},${p.pct},"${a.telefone||''}","${a.finStatus||'ok'}"\n`});dl(c,'alunos.csv','text/csv')}
+function dl(c,n,t){let b=new Blob([c],{type:t}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click()}
+function perf(){if(!user||user==='p')return;
+document.getElementById('na').textContent=user.nome;document.getElementById('fp').textContent=user.faixa;
+document.getElementById('gp').textContent=user.grau?'| '+user.grau+'º grau':'| Sem grau';document.getElementById('cp').textContent=cat(user.nasc);
+let fin=document.getElementById('finAluno');if(user.finStatus==='atrasado')fin.innerHTML='<span class="etq etq-fin">Mensalidade atrasada</span>';else if(user.planoId)fin.innerHTML='<span class="etq etq-s">Em dia</span>';else fin.innerHTML='';
+let p=calc(user);let b=document.getElementById('bp');b.style.width=p.pct+'%';b.style.background=p.pct>=100?'var(--s)':'var(--d)';
+document.getElementById('tp2').textContent=p.r&&p.r.prox!=='—'?`${p.pct}% — ${contPres(user)}/${p.presReq} presencas · ${p.fd} dias restantes para ${p.r.prox}`+(p.red&&(p.red.dias||p.red.pres)?` (redutores −${p.red.dias}d)`:''):'Faixa maxima!';
+let st=0;/* streak simples */document.getElementById('streak').textContent=contPres(user)?`Total: ${contPres(user)} treinos`:'';
+let fp=document.getElementById('fotoPerfil');if(user.foto){fp.src=user.foto;fp.classList.remove('oculto')}else fp.classList.add('oculto');
+document.getElementById('hf').innerHTML=(user.historico||[]).map(h=>`<div class="item">${h.data}: ${h.faixa} ${h.grau?h.grau+'º':''}</div>`).join('')||'-';
+document.getElementById('mp').innerHTML=(user.presencas||[]).slice().reverse().map(p=>{if(typeof p==='string')return `<div class="item">${p}</div>`;return `<div class="item">${p.data} — ${p.aulaNome||''} <span class="etq etq-gi">${p.tipo||''}</span></div>`}).join('')||'Nenhuma';
+rendA()}
+function bak(){let d={v:5,data:new Date().toISOString(),cfg,regras,metasExtra,redutorTipos,alunos,avisos,aulas,planos};dl(JSON.stringify(d,null,2),'backup-jiujitsu-'+hojeStr()+'.json','application/json');cfg.ub=new Date().toLocaleString('pt-BR');saveL();document.getElementById('ub').textContent='Ultimo: '+cfg.ub;alert('Backup baixado!')}
+function res(inp){let f=inp.files[0];if(!f)return;let r=new FileReader();r.onload=e=>{try{let d=JSON.parse(e.target.result);if(!d.alunos)throw 0;if(!confirm('Restaurar backup? Dados atuais serao substituidos.'))return;
+cfg={...cfg,...(d.cfg||{})};regras=d.regras||regras;metasExtra=d.metasExtra||[];redutorTipos=d.redutorTipos||redutorTipos;alunos=d.alunos||[];avisos=d.avisos||[];aulas=d.aulas||[];planos=d.planos||[];save();showL();alert('Restaurado!');location.reload()}catch(e){alert('Arquivo invalido')}};r.readAsText(f);inp.value=''}
+function savF(){try{let t=document.getElementById('fc').value.trim();if(!t)return alert('Cole o config');let o=JSON.parse(t);if(!o.apiKey||!o.databaseURL)return alert('Falta apiKey ou databaseURL');FC=o;localStorage.setItem('bjj_firebase',JSON.stringify(FC));if(firebase.apps.length)firebase.app().delete().then(()=>{initF();alert('Conectado')});else{initF();alert('Conectado')}}catch(e){alert('JSON invalido')}}
+function desF(){if(!confirm('Desconectar nuvem?'))return;FC=null;localStorage.removeItem('bjj_firebase');cloud=false;if(firebase.apps.length)firebase.app().delete();db=null;st();alert('Modo local')}
+function savR(){let f=document.getElementById('rfaixa').value;regras[f].pres=+document.getElementById('rp').value||0;regras[f].dias=+document.getElementById('rd').value||0;save();rendRegrasPadrao();alert('Meta padrao de '+f+' salva')}
+function rendRegrasPadrao(){let el=document.getElementById('listaRegrasPadrao');if(!el)return;
+el.innerHTML=Object.keys(regras).map(f=>`<div class="item"><strong>${f}</strong> → ${regras[f].prox||'—'} · ${regras[f].pres} pres / ${regras[f].dias} dias</div>`).join('')}
+function salvarMeta(){
+let faixa=document.getElementById('mFaixa').value,sexo=document.getElementById('mSexo').value;
+let idMin=+document.getElementById('mIdMin').value||0,idMax=+document.getElementById('mIdMax').value||99;
+let pres=+document.getElementById('mPres').value||0,dias=+document.getElementById('mDias').value||0;
+if(idMin>idMax)return alert('Idade "de" maior que "ate"');
+let editId=document.getElementById('mEditId').value;
+if(editId){
+let m=metasExtra.find(x=>x.id===editId);if(m){m.faixa=faixa;m.sexo=sexo;m.idMin=idMin;m.idMax=idMax;m.pres=pres;m.dias=dias}
+}else{
+metasExtra.push({id:Date.now().toString(),faixa,sexo,idMin,idMax,pres,dias});
+}
+cancelEditMeta();save();rendMetas();updL();updD();alert('Meta salva')}
+function editMeta(id){
+let m=metasExtra.find(x=>x.id===id);if(!m)return;
+document.getElementById('mEditId').value=m.id;
+document.getElementById('mFaixa').value=m.faixa;
+document.getElementById('mSexo').value=m.sexo||'Todos';
+document.getElementById('mIdMin').value=m.idMin;
+document.getElementById('mIdMax').value=m.idMax;
+document.getElementById('mPres').value=m.pres;
+document.getElementById('mDias').value=m.dias;
+document.getElementById('btnSalvarMeta').textContent='Atualizar meta';
+document.getElementById('btnCancelMeta').classList.remove('oculto');
+}
+function cancelEditMeta(){
+document.getElementById('mEditId').value='';
+document.getElementById('btnSalvarMeta').textContent='Salvar meta';
+document.getElementById('btnCancelMeta').classList.add('oculto');
+}
+function delMetaExtra(id){if(!confirm('Excluir esta meta?'))return;metasExtra=metasExtra.filter(m=>m.id!==id);save();rendMetas();updL()}
+function rendMetas(){
+let el=document.getElementById('tabelaMetas');if(!el)return;
+if(!metasExtra.length){el.innerHTML='<tr><td colspan="6" style="padding:10px;color:var(--l)">Nenhuma meta cadastrada</td></tr>';return}
+el.innerHTML=metasExtra.map(m=>`<tr style="border-bottom:1px solid var(--b)">
+<td style="padding:8px 4px"><strong>${m.faixa}</strong></td>
+<td style="padding:8px 4px">${m.sexo||'Todos'}</td>
+<td style="padding:8px 4px">${m.idMin}–${m.idMax}</td>
+<td style="padding:8px 4px">${m.pres}</td>
+<td style="padding:8px 4px">${m.dias}</td>
+<td style="padding:8px 4px;white-space:nowrap">
+<button class="btn btn-s btn-sm" onclick="editMeta('${m.id}')">Editar</button>
+<button class="btn btn-x btn-sm" onclick="delMetaExtra('${m.id}')">X</button>
+</td></tr>`).join('');
+}
+function fillRedSelects(){
+let ra=document.getElementById('redAluno');if(!ra)return;
+ra.innerHTML='<option value="">Aluno</option>'+alunos.filter(a=>(a.status||'Ativo')!=='Trancado').map(a=>`<option value="${a.id}">${a.nome} (${a.faixa})</option>`).join('');
+}
+function aplicarRedutorSimples(){
+let aid=document.getElementById('redAluno').value;
+let nome=document.getElementById('redNome').value.trim();
+let data=document.getElementById('redData').value;
+let dias=+document.getElementById('redDias').value||0;
+if(!aid)return alert('Selecione o aluno');
+if(!nome)return alert('Informe o motivo');
+if(!dias)return alert('Informe quantos dias reduzir');
+let a=alunos.find(x=>String(x.id)===String(aid));if(!a)return;
+a.redutores=a.redutores||[];
+a.redutores.push({id:Date.now().toString(),nome,dias,pres:0,data:data?data.split('-').reverse().join('/'):new Date().toLocaleDateString('pt-BR')});
+document.getElementById('redNome').value='';document.getElementById('redData').value='';document.getElementById('redDias').value='5';
+save();updL();updD();alert('Redutor aplicado a '+a.nome+': −'+dias+' dias')}
+function delRedutorAluno(aid,rid){
+let a=alunos.find(x=>String(x.id)===String(aid));if(!a)return;
+a.redutores=(a.redutores||[]).filter(r=>String(r.id)!==String(rid));save();updL();if(document.getElementById('modalEdit').classList.contains('on'))openEdit(aid);
+}
+function editRedutorAluno(aid,rid){
+let a=alunos.find(x=>String(x.id)===String(aid));if(!a)return;
+let r=(a.redutores||[]).find(x=>String(x.id)===String(rid));if(!r)return;
+let nome=prompt('Motivo',r.nome);if(nome===null)return;
+let dias=prompt('Dias a reduzir',r.dias);if(dias===null)return;
+let data=prompt('Data (dd/mm/aaaa)',r.data||'');if(data===null)return;
+r.nome=nome.trim()||r.nome;r.dias=+dias||r.dias;r.data=data.trim()||r.data;
+save();updL();openEdit(aid);
+}
+/* stubs para nao quebrar se algo antigo chamar */
+function rendRedTipos(){}
+function addMetaExtra(){salvarMeta()}
+function aplicarRedutor(){aplicarRedutorSimples()}
+function applyTheme(t){
+document.documentElement.setAttribute('data-theme',t);
+let btn=document.getElementById('themeBtn');
+if(btn)btn.textContent=t==='light'?'☾':'☀';
+try{localStorage.setItem('bjj_theme',t)}catch(e){}
+}
+function toggleTheme(){
+let cur=document.documentElement.getAttribute('data-theme')||'dark';
+applyTheme(cur==='dark'?'light':'dark');
+}
+(function initTheme(){
+let t='dark';
+try{t=localStorage.getItem('bjj_theme')||'dark'}catch(e){}
+applyTheme(t);
+})();
+loadL();showL();initF();updSel();fillPlanosSelect();rendRegrasPadrao();
+</script>
+</body>
+</html>

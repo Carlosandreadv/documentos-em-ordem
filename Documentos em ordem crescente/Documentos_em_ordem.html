@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Documentos em Ordem — Processador Cronológico</title>
+
+<!-- PDF.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<!-- Mammoth (ler .docx) -->
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+
+<!-- Tesseract.js (OCR) -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<!-- docx.js (gerar .docx) -->
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
+
+<!-- FileSaver -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<!-- JSZip (ler .odt e outros ZIPs) -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+<style>
+:root{
+  --bg:#0b1220;--bg2:#0f172a;--panel:#111827;--panel2:#1f2937;--panel3:#263244;
+  --text:#e5e7eb;--muted:#94a3b8;--line:#334155;--accent:#38bdf8;--accent2:#22c55e;
+  --warn:#f59e0b;--danger:#ef4444;--shadow:0 16px 40px rgba(0,0,0,.24);--radius:16px;
+}
+html[data-theme="light"]{
+  --bg:#f4f7fb;--bg2:#e8eef7;--panel:#ffffff;--panel2:#eef3f9;--panel3:#dde7f2;
+  --text:#0f172a;--muted:#64748b;--line:#d5deea;--accent:#0284c7;--accent2:#16a34a;
+  --warn:#d97706;--danger:#dc2626;--shadow:0 14px 30px rgba(15,23,42,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);
+  background:
+    radial-gradient(circle at top left,color-mix(in srgb,var(--accent) 10%,transparent),transparent 30%),
+    radial-gradient(circle at bottom right,color-mix(in srgb,var(--accent2) 8%,transparent),transparent 28%),
+    linear-gradient(180deg,var(--bg),var(--bg2));
+  min-height:100vh;
+}
+header{
+  position:sticky;top:0;z-index:20;backdrop-filter:blur(14px);
+  background:color-mix(in srgb,var(--bg) 80%,transparent);border-bottom:1px solid var(--line);
+}
+.wrap{max-width:1400px;margin:0 auto;padding:16px 20px}
+.topbar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.brand h1{font-size:20px;margin:0}
+.brand p{color:var(--muted);font-size:12px;margin:4px 0 0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+button{
+  border:1px solid var(--line);background:var(--panel);color:var(--text);padding:10px 16px;
+  border-radius:12px;cursor:pointer;font-weight:600;font-size:13px;
+  transition:.15s transform,.15s opacity,.15s background;
+}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+button.primary{background:linear-gradient(135deg,var(--accent),#0ea5e9);color:#fff;border:none}
+button.good{background:linear-gradient(135deg,var(--accent2),#16a34a);color:#fff;border:none}
+button.warn{background:linear-gradient(135deg,var(--warn),#f97316);color:#fff;border:none}
+button.danger{background:linear-gradient(135deg,var(--danger),#f43f5e);color:#fff;border:none}
+button.pause{background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none}
+button.resume{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:none}
+button.cancel{background:linear-gradient(135deg,#ef4444,#f43f5e);color:#fff;border:none}
+button.retry{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:none}
+
+.btn-group{display:flex;gap:0}
+.btn-group button{border-radius:0}
+.btn-group button:first-child{border-radius:12px 0 0 12px}
+.btn-group button:last-child{border-radius:0 12px 12px 0}
+.btn-group button+button{margin-left:-1px}
+
+/* Batch progress card */
+.batch-card{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center}
+.batch-timer{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent);white-space:nowrap}
+.batch-details{display:flex;flex-direction:column;gap:4px}
+.batch-details .detail{font-size:12px;color:var(--muted)}
+.batch-details .detail strong{color:var(--text)}
+.batch-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.batch-meta .chip{padding:4px 10px;border-radius:999px;font-size:11px;background:rgba(148,163,184,.12);color:var(--muted)}
+.batch-meta .chip.accent{background:rgba(56,189,248,.15);color:var(--accent)}
+.batch-meta .chip.green{background:rgba(34,197,94,.15);color:var(--accent2)}
+.batch-meta .chip.yellow{background:rgba(245,158,11,.15);color:var(--warn)}
+.batch-meta .chip.red{background:rgba(239,68,68,.15);color:var(--danger)}
+
+/* Server panel */
+.server-panel{display:flex;flex-direction:column;gap:10px}
+.server-status{display:flex;align-items:center;gap:8px;font-size:13px}
+.server-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.server-dot.on{background:#22c55e;box-shadow:0 0 8px #22c55e88}
+.server-dot.off{background:#ef4444;box-shadow:0 0 8px #ef444488}
+.server-url{font-size:12px;padding:8px 10px;border-radius:8px;background:var(--panel3);border:1px solid var(--line);word-break:break-all;font-family:Consolas,'Fira Code',monospace;color:var(--accent)}
+.server-cmd{position:relative}
+.server-cmd pre{margin:0;padding:30px 10px 8px;background:var(--panel3);border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--accent2);overflow:auto}
+.copy-btn{position:absolute;top:4px;right:4px;padding:4px 8px;font-size:10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);cursor:pointer}
+.copy-btn:hover{color:var(--text);background:var(--panel3)}
+.port-scan{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.port-chip{padding:4px 8px;border-radius:8px;font-size:11px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;color:var(--muted)}
+.port-chip:hover{border-color:var(--accent);color:var(--accent)}
+.port-chip.found{border-color:#22c55e;color:#22c55e;background:rgba(34,197,94,.1)}
+.port-chip.active{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.1)}
+
+main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template-columns:340px 1fr;gap:16px}
+.panel{
+  background:color-mix(in srgb,var(--panel) 96%,transparent);
+  border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;
+}
+.sidebar{padding:14px;display:flex;flex-direction:column;gap:14px;min-height:calc(100vh - 100px)}
+.section-title{
+  display:flex;justify-content:space-between;align-items:center;
+  color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+}
+.badge{padding:3px 8px;border-radius:999px;font-size:11px;background:rgba(56,189,248,.15);color:var(--accent)}
+.content{display:flex;flex-direction:column;gap:16px}
+
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+
+/* Progress bar */
+.progress-wrap{background:var(--panel3);border-radius:999px;height:8px;overflow:hidden}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+
+/* Log area */
+.log{max-height:50vh;overflow:auto;font-size:12px;line-height:1.6;font-family:'Fira Code',Consolas,monospace}
+.log-entry{padding:3px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 40%,transparent);display:flex;gap:8px;align-items:flex-start}
+.log-entry .ts{color:var(--muted);white-space:nowrap;min-width:65px}
+.log-entry .msg{flex:1;word-break:break-word}
+.ok{color:#22c55e}.err{color:#f87171}.info{color:#60a5fa}.warntext{color:#f59e0b}.dim{color:var(--muted)}
+
+/* File list */
+.file-list{display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow:auto}
+.file-item{
+  padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);
+  display:flex;justify-content:space-between;align-items:center;font-size:12px;gap:8px;
+}
+.file-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-item .meta{color:var(--muted);white-space:nowrap;font-size:11px}
+.file-item .status-icon{font-size:14px;width:20px;text-align:center}
+.file-item.status-pending .status-icon{color:var(--muted)}
+.file-item.status-processing .status-icon{color:var(--warn)}
+.file-item.status-done .status-icon{color:var(--accent2)}
+.file-item.status-error .status-icon{color:var(--danger)}
+
+/* Stats */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap}
+.stat-box{
+  flex:1;min-width:80px;text-align:center;padding:10px;
+  background:var(--panel3);border-radius:12px;
+}
+.stat-box .num{font-size:22px;font-weight:700;color:var(--accent)}
+.stat-box .label{font-size:11px;color:var(--muted);margin-top:2px}
+.stat-box.green .num{color:var(--accent2)}
+.stat-box.yellow .num{color:var(--warn)}
+.stat-box.red .num{color:var(--danger)}
+
+/* Result preview */
+.result-box{
+  background:var(--panel3);border:1px solid var(--line);border-radius:12px;
+  padding:14px;max-height:40vh;overflow:auto;font-size:13px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;
+}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px}
+.empty-state .icon{font-size:48px;margin-bottom:12px;opacity:.5}
+
+@media(max-width:960px){
+  main{grid-template-columns:1fr}
+  .sidebar{min-height:auto}
+}
+@media(max-width:500px){
+  .stats-row{flex-direction:column}
+  .actions{width:100%}
+  .actions button{flex:1;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap topbar">
+    <div class="brand">
+      <h1>📄 Documentos em Ordem</h1>
+      <p>Selecione uma pasta, processe todos os arquivos e exporte um .docx cronológico.</p>
+    </div>
+    <div class="actions">
+      <button id="themeBtn" title="Alternar tema">🌓 Tema</button>
+      <button id="folderBtn" class="primary" title="Selecionar pasta">📁 Selecionar Pasta</button>
+      <div class="btn-group">
+        <button id="processBtn" class="good" disabled title="Iniciar processamento">⚙️ Processar</button>
+        <button id="pauseBtn" class="pause" style="display:none" title="Pausar processamento">⏸ Pausar</button>
+        <button id="cancelBtn" class="cancel" style="display:none" title="Cancelar processamento">✕ Cancelar</button>
+      </div>
+      <button id="exportBtn" class="warn" disabled title="Exportar .docx">📥 Exportar .docx</button>
+      <button id="retryBtn" class="retry" style="display:none" title="Reprocessar arquivos com erro">🔁 Repetir Erros</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <aside class="panel sidebar">
+    <!-- Stats -->
+    <div class="section-title"><span>Estatísticas</span></div>
+    <div class="stats-row">
+      <div class="stat-box"><div class="num" id="statTotal">0</div><div class="label">Arquivos</div></div>
+      <div class="stat-box green"><div class="num" id="statDone">0</div><div class="label">Prontos</div></div>
+      <div class="stat-box yellow"><div class="num" id="statProgress">0</div><div class="label">Fila</div></div>
+      <div class="stat-box red"><div class="num" id="statErrors">0</div><div class="label">Erros</div></div>
+    </div>
+
+    <!-- Progress -->
+    <div class="section-title"><span>Progresso</span><span class="badge" id="progressPct">0%</span></div>
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+
+    <!-- Batch progress card -->
+    <div id="batchCard" class="card" style="display:none">
+      <div class="batch-card">
+        <div class="batch-timer" id="batchTimer">00:00</div>
+        <div class="batch-details">
+          <div class="detail"><strong id="batchCurrentName">—</strong></div>
+          <div class="detail">Arquivo <strong id="batchFileIdx">0</strong> de <strong id="batchFileTotal">0</strong></div>
+          <div class="detail">Tempo restante estimado: <strong id="batchETA">—</strong></div>
+        </div>
+      </div>
+      <div class="batch-meta">
+        <span class="chip accent" id="batchPending">0 na fila</span>
+        <span class="chip green" id="batchDoneChip">0 prontos</span>
+        <span class="chip red" id="batchErrChip">0 erros</span>
+      </div>
+    </div>
+
+    <!-- Filter pills -->
+    <div class="section-title"><span>Filtrar por tipo</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="filterPills"></div>
+
+    <!-- File list -->
+    <div class="section-title"><span>Arquivos</span><span class="badge" id="fileCount">0</span></div>
+    <div id="fileList" class="file-list"></div>
+
+    <!-- Folder info -->
+    <div class="section-title"><span>Pasta</span></div>
+    <div id="folderName" style="font-size:12px;color:var(--muted)">Nenhuma pasta selecionada</div>
+
+    <!-- Server panel -->
+    <div class="section-title"><span>Servidor Local</span><span class="badge" id="serverBadge">verificando...</span></div>
+    <div id="serverPanel" class="card server-panel">
+      <div class="server-status">
+        <span class="server-dot off" id="serverDot"></span>
+        <span id="serverStatusText">Verificando...</span>
+      </div>
+      <div id="serverUrlBox" style="display:none">
+        <div class="server-url" id="serverUrlDisplay"></div>
+        <button id="openServerBtn" class="primary" style="width:100%;margin-top:8px">Abrir nesta aba</button>
+      </div>
+      <div id="serverSetup">
+        <div class="server-cmd">
+          <button class="copy-btn" id="copyCmdBtn">Copiar</button>
+          <pre id="serverCmdText">npx serve .</pre>
+        </div>
+        <button id="tryServerBtn" class="good" style="width:100%;margin-top:8px">🔍 Verificar portas</button>
+        <div class="port-scan" id="portScan"></div>
+      </div>
+    </div>
+  </aside>
+
+  <section class="content">
+    <!-- Controls info -->
+    <div class="card" id="infoCard">
+      <div class="empty-state">
+        <div class="icon">📂</div>
+        <p><strong>Bem-vindo ao Documentos em Ordem</strong></p>
+        <p style="margin-top:8px;font-size:13px">
+          1. Clique em <em>Selecionar Pasta</em> para escolher o diretório.<br>
+          2. Os arquivos serão listados e ordenados cronologicamente.<br>
+          3. Clique em <em>Processar</em> para extrair textos (OCR, PDF, áudio).<br>
+          4. Clique em <em>Exportar .docx</em> para baixar o compilado.
+        </p>
+        <p style="margin-top:12px;font-size:12px;color:var(--muted)">💡 Para eliminar avisos do navegador, use um servidor local (painel à esquerda).</p>
+      </div>
+    </div>
+
+    <!-- Logs -->
+    <div class="panel">
+      <div class="card">
+        <div class="section-title"><span>Logs</span><span class="badge" id="logCount">0</span></div>
+        <div id="logBox" class="log"></div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="panel" id="previewPanel" style="display:none">
+      <div class="card">
+        <div class="section-title"><span>Prévia do resultado</span></div>
+        <div id="previewBox" class="result-box"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ============================================================
+   UTILS
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const THEMES = {dark:'dark', light:'light'};
+let currentTheme = localStorage.getItem('doc_theme') || 'dark';
+document.documentElement.setAttribute('data-theme', currentTheme);
+
+$('themeBtn').onclick = () => {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  localStorage.setItem('doc_theme', currentTheme);
+};
+
+/* ============================================================
+   LOGGING
+   ============================================================ */
+let logEntries = [];
+function log(msg, cls = '') {
+  const ts = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  logEntries.push({ts, msg, cls});
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="ts">${ts}</span><span class="msg ${cls}">${msg}</span>`;
+  $('logBox').appendChild(div);
+  $('logBox').scrollTop = $('logBox').scrollHeight;
+  $('logCount').textContent = logEntries.length;
+}
+
+/* ============================================================
+   FILE TYPE CONFIG
+   ============================================================ */
+const EXT_TEXT  = new Set(['txt','md','html','htm','css','js','json','xml','csv','rtf']);
+const EXT_PDF   = new Set(['pdf']);
+const EXT_DOCX  = new Set(['docx']);
+const EXT_DOC   = new Set(['doc']);
+const EXT_ODT   = new Set(['odt']);
+const EXT_IMG   = new Set(['jpg','jpeg','png','tiff','tif','bmp','gif','webp','svg']);
+const EXT_AUDIO = new Set(['mp3','wav','aac','flac','ogg','m4a','wma','opus']);
+
+function classifyExt(ext) {
+  ext = ext.toLowerCase();
+  if (EXT_TEXT.has(ext))  return 'texto';
+  if (EXT_PDF.has(ext))  return 'pdf';
+  if (EXT_DOCX.has(ext)) return 'docx';
+  if (EXT_DOC.has(ext))  return 'doc';
+  if (EXT_ODT.has(ext))  return 'odt';
+  if (EXT_IMG.has(ext))  return 'imagem';
+  if (EXT_AUDIO.has(ext))return 'audio';
+  return 'desconhecido';
+}
+
+function extIcon(type) {
+  switch(type) {
+    case 'texto': return '📝';
+    case 'pdf':   return '📕';
+    case 'docx':  return '📘';
+    case 'doc':   return '📗';
+    case 'odt':   return '📙';
+    case 'imagem':return '🖼️';
+    case 'audio': return '🎵';
+    default:      return '📎';
+  }
+}
+
+// Ícones de texto seguros para DOCX (sem emojis)
+function docxIcon(type) {
+  switch(type) {
+    case 'texto': return '[TXT]';
+    case 'pdf':   return '[PDF]';
+    case 'docx':  return '[DOCX]';
+    case 'doc':   return '[DOC]';
+    case 'odt':   return '[ODT]';
+    case 'imagem':return '[IMG]';
+    case 'audio': return '[AUD]';
+    default:      return '[---]';
+  }
+}
+
+/* ============================================================
+   APP STATE
+   ============================================================ */
+let folderHandle = null;
+let files = [];          // [{handle, name, ext, type, lastModified, size, status, content, error}]
+let isProcessing = false;
+let isCancelled = false;
+let isPaused = false;
+let pauseResolve = null;  // resolve function to unpause
+let activeFilter = 'all';
+let batchStartTime = 0;
+let currentFileIndex = 0;
+let filesProcessedSoFar = 0;
+let totalTimeProcessing = 0;  // accumulated ms of actual processing
+let timerInterval = null;
+
+/* --- Pause gate --- */
+function waitForResume() {
+  if (!isPaused) return Promise.resolve();
+  return new Promise(resolve => { pauseResolve = resolve; });
+}
+
+/* --- Batch progress UI --- */
+function showBatchProgress() {
+  $('batchCard').style.display = '';
+  $('batchFileTotal').textContent = files.length;
+}
+function hideBatchProgress() {
+  $('batchCard').style.display = 'none';
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+function startTimer() {
+  batchStartTime = Date.now();
+  timerInterval = setInterval(updateTimer, 200);
+}
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  totalTimeProcessing += Date.now() - batchStartTime;
+}
+function updateTimer() {
+  const elapsed = totalTimeProcessing + (Date.now() - batchStartTime);
+  $('batchTimer').textContent = formatMs(elapsed);
+  // ETA calculation
+  if (filesProcessedSoFar > 0 && currentFileIndex < files.length) {
+    const avg = elapsed / filesProcessedSoFar;
+    const remaining = (files.length - currentFileIndex) * avg;
+    $('batchETA').textContent = formatMs(remaining);
+  }
+}
+function formatMs(ms) {
+  const sec = Math.floor(ms / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return h > 0 ? `${h}:${String(mm).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+               : `${String(mm).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function updateBatchProgress(idx) {
+  currentFileIndex = idx;
+  const pending = files.filter(f => f.status === 'pending').length;
+  const done = files.filter(f => f.status === 'done').length;
+  const errs = files.filter(f => f.status === 'error').length;
+  $('batchFileIdx').textContent = idx + 1;
+  $('batchPending').textContent = pending + ' na fila';
+  $('batchDoneChip').textContent = done + ' prontos';
+  $('batchErrChip').textContent = errs + ' erros';
+  if (files[idx]) {
+    $('batchCurrentName').textContent = files[idx].name;
+  }
+}
+
+/* ============================================================
+   FOLDER SELECTION (File System Access API)
+   ============================================================ */
+$('folderBtn').onclick = async () => {
+  if (!('showDirectoryPicker' in window)) {
+    log('Seu navegador não suporta File System Access API. Use Chrome/Edge.', 'err');
+    alert('Seu navegador não suporta a seleção de pastas. Use Chrome ou Edge.');
+    return;
+  }
+  try {
+    folderHandle = await window.showDirectoryPicker({mode:'read'});
+    $('folderName').textContent = folderHandle.name;
+    log(`Pasta selecionada: <strong>${folderHandle.name}</strong>`, 'info');
+    await scanFolder(folderHandle);
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      log(`Erro ao selecionar pasta: ${e.message}`, 'err');
+    }
+  }
+};
+
+async function scanFolder(handle) {
+  files = [];
+  isCancelled = false;
+  $('exportBtn').disabled = true;
+  $('processBtn').disabled = false;
+  $('previewPanel').style.display = 'none';
+  $('previewBox').textContent = '';
+
+  log('Escaneando pasta...', 'info');
+  let count = 0;
+
+  for await (const entry of handle.values()) {
+    if (entry.kind !== 'file') continue;
+
+    const name = entry.name;
+    const dotPos = name.lastIndexOf('.');
+    if (dotPos === -1) continue; // sem extensão, ignora
+    const ext = name.substring(dotPos + 1).toLowerCase();
+    const type = classifyExt(ext);
+
+    if (type === 'desconhecido') {
+      log(`Ignorado (tipo desconhecido): <strong>${name}</strong>`, 'dim');
+      continue;
+    }
+
+    const fileHandle = entry;
+    const fileObj = await fileHandle.getFile();
+
+    files.push({
+      handle: fileHandle,
+      name: name,
+      ext: ext,
+      type: type,
+      lastModified: fileObj.lastModified || Date.now(),
+      size: fileObj.size,
+      status: 'pending',
+      content: null,
+      error: null,
+      _fileObj: fileObj
+    });
+    count++;
+  }
+
+  // Ordenar cronologicamente (mais antigo primeiro)
+  files.sort((a, b) => a.lastModified - b.lastModified);
+
+  log(`Encontrados <strong>${count}</strong> arquivos compatíveis.`, 'ok');
+  renderFileList();
+  updateStats();
+  renderFilterPills();
+}
+
+/* ============================================================
+   RENDER FILE LIST
+   ============================================================ */
+function renderFileList() {
+  const container = $('fileList');
+  container.innerHTML = '';
+  $('fileCount').textContent = files.length;
+
+  const filtered = activeFilter === 'all' ? files : files.filter(f => f.type === activeFilter);
+
+  filtered.forEach((f, idx) => {
+    const realIdx = files.indexOf(f);
+    const div = document.createElement('div');
+    div.className = `file-item status-${f.status}`;
+    const dateStr = new Date(f.lastModified).toLocaleDateString('pt-BR');
+    const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
+                    f.size > 1024 ? (f.size/1024).toFixed(0)+' KB' : f.size+' B';
+
+    let statusIcon = '⏳';
+    if (f.status === 'processing') statusIcon = '⚙️';
+    if (f.status === 'done') statusIcon = '✅';
+    if (f.status === 'error') statusIcon = '❌';
+
+    div.innerHTML = `
+      <span class="status-icon">${statusIcon}</span>
+      <span class="name" title="${f.name}">${extIcon(f.type)} ${f.name}</span>
+      <span class="meta">${dateStr} · ${sizeStr}</span>
+    `;
+    div.style.cursor = f.status === 'done' ? 'pointer' : 'default';
+    if (f.status === 'done') {
+      div.onclick = () => showPreview(realIdx);
+    }
+    container.appendChild(div);
+  });
+}
+
+function renderFilterPills() {
+  const container = $('filterPills');
+  container.innerHTML = '';
+  const types = [...new Set(files.map(f => f.type))];
+  const allBtn = document.createElement('button');
+  allBtn.textContent = `Todos (${files.length})`;
+  allBtn.style.fontSize = '11px';
+  allBtn.style.padding = '5px 10px';
+  if (activeFilter === 'all') allBtn.classList.add('primary');
+  allBtn.onclick = () => { activeFilter = 'all'; renderFileList(); renderFilterPills(); };
+  container.appendChild(allBtn);
+
+  types.forEach(t => {
+    const count = files.filter(f => f.type === t).length;
+    const btn = document.createElement('button');
+    btn.textContent = `${extIcon(t)} ${t} (${count})`;
+    btn.style.fontSize = '11px';
+    btn.style.padding = '5px 10px';
+    if (activeFilter === t) btn.classList.add('primary');
+    btn.onclick = () => { activeFilter = t; renderFileList(); renderFilterPills(); };
+    container.appendChild(btn);
+  });
+}
+
+function updateStats() {
+  const total = files.length;
+  const done = files.filter(f => f.status === 'done').length;
+  const processing = files.filter(f => f.status === 'processing').length;
+  const errors = files.filter(f => f.status === 'error').length;
+  $('statTotal').textContent = total;
+  $('statDone').textContent = done;
+  $('statProgress').textContent = processing;
+  $('statErrors').textContent = errors;
+
+  const pct = total > 0 ? Math.round(((done + errors) / total) * 100) : 0;
+  $('progressPct').textContent = pct + '%';
+  $('progressBar').style.width = pct + '%';
+
+  if (done > 0) {
+    $('exportBtn').disabled = false;
+  }
+}
+
+function showPreview(idx) {
+  const f = files[idx];
+  if (!f || !f.content) return;
+  $('previewPanel').style.display = '';
+  $('previewBox').textContent = `--- ${f.name} (${f.type}) ---\n\n${f.content}`;
+}
+
+/* ============================================================
+   PROCESSING ENGINE
+   ============================================================ */
+/* --- Button handlers --- */
+$('processBtn').onclick = () => startProcessing();
+$('pauseBtn').onclick = () => togglePause();
+$('cancelBtn').onclick = () => cancelProcessing();
+$('retryBtn').onclick = () => retryErrors();
+
+function setProcessingUI(active) {
+  if (active) {
+    $('processBtn').style.display = 'none';
+    $('retryBtn').style.display = 'none';
+    $('pauseBtn').style.display = '';
+    $('pauseBtn').textContent = '⏸ Pausar';
+    $('pauseBtn').className = 'pause';
+    $('cancelBtn').style.display = '';
+    $('folderBtn').disabled = true;
+    $('exportBtn').disabled = true;
+  } else {
+    $('processBtn').style.display = '';
+    $('pauseBtn').style.display = 'none';
+    $('cancelBtn').style.display = 'none';
+    $('folderBtn').disabled = false;
+    $('exportBtn').disabled = files.every(f => f.status !== 'done');
+    // Show retry button if there are errors
+    const hasErrors = files.some(f => f.status === 'error');
+    $('retryBtn').style.display = hasErrors ? '' : 'none';
+  }
+}
+
+function togglePause() {
+  if (!isProcessing) return;
+  if (isPaused) {
+    // Resume
+    isPaused = false;
+    $('pauseBtn').textContent = '⏸ Pausar';
+    $('pauseBtn').className = 'pause';
+    startTimer();
+    log('▶ Processamento retomado.', 'ok');
+    if (pauseResolve) { pauseResolve(); pauseResolve = null; }
+  } else {
+    // Pause
+    isPaused = true;
+    stopTimer();
+    $('pauseBtn').textContent = '▶ Retomar';
+    $('pauseBtn').className = 'resume';
+    log('⏸ Processamento pausado.', 'warntext');
+  }
+}
+
+function cancelProcessing() {
+  if (!isProcessing) return;
+  isCancelled = true;
+  // Unpause so the loop can exit
+  if (isPaused) {
+    isPaused = false;
+    if (pauseResolve) { pauseResolve(); pauseResolve = null; }
+  }
+  log('✕ Cancelamento solicitado...', 'err');
+}
+
+function retryErrors() {
+  if (isProcessing) return;
+  const errorCount = files.filter(f => f.status === 'error').length;
+  if (errorCount === 0) return;
+
+  // Reset error files to pending
+  files.forEach(f => {
+    if (f.status === 'error') {
+      f.status = 'pending';
+      f.error = null;
+      f.content = null;
+    }
+  });
+
+  renderFileList();
+  updateStats();
+  log(`🔁 Reprocessando ${errorCount} arquivo(s) com erro...`, 'info');
+  startProcessing();
+}
+
+async function startProcessing() {
+  if (isProcessing || files.length === 0) return;
+  isProcessing = true;
+  isCancelled = false;
+  isPaused = false;
+  filesProcessedSoFar = 0;
+  totalTimeProcessing = 0;
+  currentFileIndex = 0;
+
+  setProcessingUI(true);
+  showBatchProgress();
+  startTimer();
+  updateBatchProgress(0);
+
+  log('Iniciando processamento de arquivos...', 'info');
+
+  for (let i = 0; i < files.length; i++) {
+    // Check cancel
+    if (isCancelled) {
+      log('Processamento cancelado pelo usuário.', 'warntext');
+      break;
+    }
+
+    // Check pause
+    await waitForResume();
+    if (isCancelled) {  // might have been cancelled while paused
+      log('Processamento cancelado pelo usuário.', 'warntext');
+      break;
+    }
+
+    const f = files[i];
+    if (f.status === 'done' || f.status === 'error') {
+      filesProcessedSoFar++;
+      continue;
+    }
+
+    f.status = 'processing';
+    renderFileList();
+    updateStats();
+    updateBatchProgress(i);
+
+    log(`Processando (${i+1}/${files.length}): <strong>${f.name}</strong>`, 'info');
+
+    try {
+      await processFile(f);
+      f.status = 'done';
+      log(`✔ Concluído: ${f.name}`, 'ok');
+    } catch (e) {
+      f.status = 'error';
+      f.error = e.message || String(e);
+      log(`✘ Erro em ${f.name}: ${f.error}`, 'err');
+    }
+
+    filesProcessedSoFar++;
+    renderFileList();
+    updateStats();
+    updateBatchProgress(i + 1);
+
+    // Yield to browser between files
+    await sleep(30);
+  }
+
+  stopTimer();
+  const elapsed = totalTimeProcessing;
+  isProcessing = false;
+  isPaused = false;
+  setProcessingUI(false);
+
+  const doneCount = files.filter(f => f.status === 'done').length;
+  log(`<strong>Processamento finalizado em ${formatMs(elapsed)}.</strong> ${doneCount}/${files.length} arquivos processados com sucesso.`, 'info');
+
+  // Keep batch card visible with final stats for a moment, then hide after 8s
+  updateBatchProgress(files.length);
+  $('batchETA').textContent = '—';
+  setTimeout(() => { if (!isProcessing) hideBatchProgress(); }, 8000);
+}
+
+async function processFile(f) {
+  switch (f.type) {
+    case 'texto':
+      await processText(f);
+      break;
+    case 'pdf':
+      await processPDF(f);
+      break;
+    case 'docx':
+      await processDOCX(f);
+      break;
+    case 'doc':
+      await processLegacyDoc(f);
+      break;
+    case 'odt':
+      await processODT(f);
+      break;
+    case 'imagem':
+      await processImage(f);
+      break;
+    case 'audio':
+      await processAudio(f);
+      break;
+    default:
+      f.content = `[Tipo "${f.type}" não suportado para extração]`;
+  }
+}
+
+/* ---- Text files ---- */
+async function processText(f) {
+  const text = await f._fileObj.text();
+  f.content = text.trim() || '[Arquivo vazio]';
+}
+
+/* ---- PDF ---- */
+async function processPDF(f) {
+  if (typeof pdfjsLib === 'undefined') {
+    throw new Error('PDF.js não carregado. Verifique sua conexão.');
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const arrayBuffer = await f._fileObj.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+  let fullText = '';
+  const totalPages = pdf.numPages;
+
+  for (let p = 1; p <= totalPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+    const strings = tc.items.map(item => item.str);
+    fullText += `--- Página ${p}/${totalPages} ---\n${strings.join(' ')}\n\n`;
+  }
+
+  f.content = fullText.trim() || `[PDF sem texto extraível (${totalPages} páginas)]`;
+  log(`  PDF extraído: ${totalPages} páginas`, 'dim');
+}
+
+/* ---- DOCX ---- */
+async function processDOCX(f) {
+  if (typeof mammoth === 'undefined') {
+    throw new Error('Mammoth.js não carregado. Verifique sua conexão.');
+  }
+  const arrayBuffer = await f._fileObj.arrayBuffer();
+  const result = await mammoth.extractRawText({arrayBuffer});
+  f.content = result.value.trim() || '[DOCX vazio]';
+  if (result.messages && result.messages.length > 0) {
+    log(`  Avisos Mammoth: ${result.messages.length} mensagem(ns)`, 'dim');
+  }
+}
+
+/* ---- DOC (legacy) ---- */
+async function processLegacyDoc(f) {
+  // Tentar com mammoth (funciona para .doc renomeado frequentemente)
+  try {
+    const arrayBuffer = await f._fileObj.arrayBuffer();
+    const result = await mammoth.extractRawText({arrayBuffer});
+    f.content = result.value.trim();
+    if (f.content) {
+      log('  .doc lido com sucesso via Mammoth.', 'dim');
+      return;
+    }
+  } catch(e) { /* ignora */ }
+
+  // Fallback: informar que .doc não é suportado no browser
+  f.content = `[Arquivo .doc — extração de texto não suportada diretamente no navegador.\nSugestão: converta para .docx antes de processar.]`;
+  log('  .doc: conversão direta não disponível no navegador.', 'warntext');
+}
+
+/* ---- ODT ---- */
+async function processODT(f) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('JSZip não carregado. Verifique sua conexão.');
+  }
+
+  const arrayBuffer = await f._fileObj.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+
+  // ODT é um ZIP contendo content.xml com o texto
+  const contentFile = zip.file('content.xml');
+  if (!contentFile) {
+    f.content = '[ODT: content.xml não encontrado no pacote]';
+    return;
+  }
+
+  const contentXml = await contentFile.async('text');
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(contentXml, 'text/xml');
+
+  // Extrair texto de todos os nós <text:p> (parágrafos)
+  const textNodes = doc.getElementsByTagNameNS('urn:oasis:names:tc:opendocument:xmlns:text', 'p');
+  let text = '';
+  for (const node of textNodes) {
+    text += node.textContent + '\n';
+  }
+
+  f.content = text.trim() || '[ODT vazio]';
+  log(`  ODT extraído: ${textNodes.length} parágrafos`, 'dim');
+}
+
+/* ---- Image OCR ---- */// Detectar orientação EXIF de um arquivo JPEG
+// Extrair orientação EXIF de dados TIFF (usado por JPEG e PNG eXIf chunk)
+function parseTiffForOrientation(tiffData, tiffOffset) {
+  const view = new DataView(tiffData);
+  if (tiffOffset + 8 > view.byteLength) return 1;
+  const byteOrder = view.getUint16(tiffOffset, false);
+  const le = byteOrder === 0x4949;
+  const ifdOffset = view.getUint32(tiffOffset + 4, le);
+  const absIfd = tiffOffset + ifdOffset;
+  if (absIfd + 2 > view.byteLength) return 1;
+  const numEntries = view.getUint16(absIfd, le);
+  for (let i = 0; i < numEntries; i++) {
+    const entryOffset = absIfd + 2 + (i * 12);
+    if (entryOffset + 12 > view.byteLength) break;
+    if (view.getUint16(entryOffset, le) === 0x0112) {
+      return view.getUint16(entryOffset + 8, le);
+    }
+  }
+  return 1;
+}
+
+// Detectar orientação EXIF de imagem (JPEG e PNG)
+async function getExifOrientation(file) {
+  try {
+    const buf = await file.slice(0, 131072).arrayBuffer(); // 128KB
+    const view = new DataView(buf);
+
+    // === JPEG ===
+    if (view.getUint16(0, false) === 0xFFD8) {
+      let offset = 2;
+      while (offset < view.byteLength - 2) {
+        const marker = view.getUint16(offset, false);
+        if (marker === 0xFFE1) { // App1 EXIF
+          const exifStart = offset + 4;
+          if (view.getUint32(exifStart, false) === 0x45786966 && view.getUint16(exifStart + 4, false) === 0x0000) {
+            return parseTiffForOrientation(buf, exifStart + 6);
+          }
+        }
+        if ((marker & 0xFF00) !== 0xFF00) break;
+        offset += 2 + view.getUint16(offset + 2, false);
+      }
+      return 1;
+    }
+
+    // === PNG ===
+    // Signature: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
+    if (view.getUint32(0, false) === 0x89504E47 && view.getUint32(4, false) === 0x0D0A1A0A) {
+      let offset = 8;
+      while (offset + 8 <= view.byteLength) {
+        const chunkLen = view.getUint32(offset, false);
+        const chunkType = view.getUint32(offset + 4, false);
+        const chunkDataStart = offset + 8;
+
+        // eXIf chunk (0x65584966 = 'eXIf')
+        if (chunkType === 0x65584966) {
+          // eXIf data starts with TIFF header
+          return parseTiffForOrientation(buf, chunkDataStart);
+        }
+
+        // Se encontrar IEND (0x49454E44), parar
+        if (chunkType === 0x49454E44) break;
+
+        // Avançar: 4(len) + 4(type) + data + 4(CRC)
+        offset += 12 + chunkLen;
+      }
+      return 1;
+    }
+
+    // === Outros formatos: sem EXIF ===
+    return 1;
+  } catch(e) {
+    return 1;
+  }
+}
+
+// Converter valor EXIF orientation em transformação canvas
+function exifOrientationToTransform(orientation) {
+  // Retorna {rotation, flipX, flipY} para aplicar no canvas
+  switch (orientation) {
+    case 1: return { rotation: 0, flipX: false, flipY: false };
+    case 2: return { rotation: 0, flipX: true,  flipY: false };
+    case 3: return { rotation: 180, flipX: false, flipY: false };
+    case 4: return { rotation: 0, flipX: false, flipY: true };
+    case 5: return { rotation: 90, flipX: true,  flipY: false };
+    case 6: return { rotation: 90, flipX: false, flipY: false };
+    case 7: return { rotation: 270, flipX: true, flipY: false };
+    case 8: return { rotation: 270, flipX: false, flipY: false };
+    default: return { rotation: 0, flipX: false, flipY: false };
+  }
+}
+
+async function processImage(f) {
+  if (typeof Tesseract === 'undefined') {
+    throw new Error('Tesseract.js não carregado. Verifique sua conexão.');
+  }
+
+  log(`  Iniciando OCR para ${f.name}...`, 'dim');
+
+  // Detectar EXIF orientation antes de qualquer processamento
+  const exifOrientation = await getExifOrientation(f._fileObj);
+  const exifTransform = exifOrientationToTransform(exifOrientation);
+  if (exifOrientation !== 1) {
+    log(`  EXIF Orientation detectado: ${exifOrientation} (rotação: ${exifTransform.rotation}°${exifTransform.flipX ? ', flipX' : ''}${exifTransform.flipY ? ', flipY' : ''})`, 'info');
+  }
+
+  const imgBitmap = await createImageBitmap(f._fileObj);
+
+  // Função auxiliar: atualizar tooltip do arquivo na lista
+  const updateTooltip = (msg) => {
+    const idx = files.indexOf(f);
+    if (idx < 0) return;
+    const items = document.querySelectorAll('.file-item');
+    const filtered = activeFilter === 'all' ? files : files.filter(ft => ft.type === activeFilter);
+    const fi = filtered.indexOf(f);
+    if (fi >= 0 && items[fi]) {
+      const ns = items[fi].querySelector('.name');
+      if (ns) ns.title = msg;
+    }
+  };
+
+  const logger = {
+    logger: m => {
+      if (m.status === 'recognizing text') {
+        updateTooltip(`${f.name} — OCR: ${Math.round(m.progress * 100)}%`);
+      }
+    }
+  };
+
+  // Função: aplicar transformação EXIF + rotação extra + preprocessamento
+  function preprocessImage(bitmap, extraRotationDeg, exif) {
+    const c = document.createElement('canvas');
+    const cx = c.getContext('2d');
+    const w = bitmap.width, h = bitmap.height;
+
+    // Rotação total = EXIF + extra
+    const totalRotation = (exif.rotation + extraRotationDeg) % 360;
+    const is90or270 = totalRotation === 90 || totalRotation === 270;
+
+    c.width = is90or270 ? h : w;
+    c.height = is90or270 ? w : h;
+
+    cx.save();
+    cx.translate(c.width / 2, c.height / 2);
+    cx.rotate((totalRotation * Math.PI) / 180);
+    if (exif.flipX) cx.scale(-1, 1);
+    if (exif.flipY) cx.scale(1, -1);
+    cx.drawImage(bitmap, -w / 2, -h / 2);
+    cx.restore();
+
+    // Cinza + normalização + binarização
+    const imgData = cx.getImageData(0, 0, c.width, c.height);
+    const d = imgData.data;
+    let mn = 255, mx = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+      d[i] = d[i+1] = d[i+2] = g;
+      if (g < mn) mn = g;
+      if (g > mx) mx = g;
+    }
+    const rng = mx - mn || 1;
+    for (let i = 0; i < d.length; i += 4) {
+      const v = ((d[i] - mn) / rng) * 255;
+      d[i] = d[i+1] = d[i+2] = v > 140 ? 255 : 0;
+    }
+    cx.putImageData(imgData, 0, 0);
+    return c;
+  }
+
+  // Função: rodar OCR num canvas e retornar {text, confidence}
+  async function runOCR(canvas, label) {
+    const r = await Tesseract.recognize(canvas, 'por+eng', logger);
+    const t = r.data.text.trim();
+    const c = r.data.confidence;
+    if (t.length > 0) log(`  OCR ${label}: ${c.toFixed(0)}% confiança, ${t.length} chars`, 'dim');
+    return { text: t, confidence: c };
+  }
+
+  // Função: melhor entre dois resultados OCR
+  function bestResult(a, b) {
+    if (a.text.length > b.text.length * 1.1) return a;
+    if (b.text.length > a.text.length * 1.1) return b;
+    return a.confidence >= b.confidence ? a : b;
+  }
+
+  // === PASSO 1: Com EXIF aplicado, testar 4 orientações extras ===
+  const extraAngles = [0, 90, 180, 270];
+  let best = { text: '', confidence: 0 };
+
+  log(`  Testando orientações (EXIF + ${extraAngles.length} rotações)...`, 'dim');
+  for (const angle of extraAngles) {
+    const canvas = preprocessImage(imgBitmap, angle, exifTransform);
+    const result = await runOCR(canvas, `EXIF+${angle}`);
+    best = bestResult(best, result);
+    if (best.text.length > 50 && best.confidence > 70) break;
+  }
+
+  // === PASSO 2: Se pouco texto, tentar com imagem original (sem binarização) ===
+  if (best.text.length < 20 && f.size > 10000) {
+    log(`  Pouco texto detectado (${best.text.length} chars), tentando imagem original...`, 'dim');
+
+    for (const angle of extraAngles) {
+      const c = document.createElement('canvas');
+      const cx = c.getContext('2d');
+      const w = imgBitmap.width, h = imgBitmap.height;
+      const totalRot = (exifTransform.rotation + angle) % 360;
+      const is90 = totalRot === 90 || totalRot === 270;
+      c.width = is90 ? h : w;
+      c.height = is90 ? w : h;
+      cx.save();
+      cx.translate(c.width/2, c.height/2);
+      cx.rotate((totalRot * Math.PI) / 180);
+      if (exifTransform.flipX) cx.scale(-1, 1);
+      if (exifTransform.flipY) cx.scale(1, -1);
+      cx.drawImage(imgBitmap, -w/2, -h/2);
+      cx.restore();
+      const result = await runOCR(c, `original EXIF+${angle}`);
+      best = bestResult(best, result);
+      if (best.text.length > 50 && best.confidence > 70) break;
+    }
+  }
+
+  f.content = best.text || `[OCR não encontrou texto em ${f.name}]`;
+  log(`  OCR finalizado: ${best.confidence.toFixed(0)}% confiança, ${best.text.length} caracteres`, 'ok');
+}
+
+/* ---- Audio transcription ---- */
+async function processAudio(f) {
+  log(`  Processando áudio: ${f.name}...`, 'dim');
+
+  try {
+    const arrayBuffer = await f._fileObj.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const duration = audioBuffer.duration.toFixed(1);
+    const sampleRate = audioBuffer.sampleRate;
+    const channels = audioBuffer.numberOfChannels;
+
+    let output = `[Áudio: ${f.name}]\n` +
+                 `Duração: ${duration}s\n` +
+                 `Canais: ${channels}\n` +
+                 `Taxa de amostragem: ${sampleRate} Hz\n`;
+
+    // Calcular volume RMS para detectar se há áudio real
+    const ch0 = audioBuffer.getChannelData(0);
+    let sumSq = 0;
+    for (let i = 0; i < ch0.length; i++) sumSq += ch0[i] * ch0[i];
+    const rms = Math.sqrt(sumSq / ch0.length);
+    output += `Volume RMS: ${(rms * 100).toFixed(1)}%\n`;
+
+    const hasSpeechAPI = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+
+    if (!hasSpeechAPI || rms < 0.005) {
+      // Sem Speech API ou áudio muito silencioso
+      const reason = !hasSpeechAPI ? 'Reconhecimento de fala não suportado neste navegador.'
+                              : 'Áudio muito silencioso (RMS < 0.5%).';
+      f.content = output + `\n[${reason}]\n` +
+                  'Para transcrição completa, use Whisper (OpenAI), Azure Speech ou Google STT.';
+      audioCtx.close();
+      return;
+    }
+
+    // Converter para WAV e tentar transcrição via Web Speech API
+    try {
+      const wavBlob = audioBufferToWav(audioBuffer);
+      const audioUrl = URL.createObjectURL(wavBlob);
+      const audioEl = new Audio(audioUrl);
+      audioEl.crossOrigin = 'anonymous';
+
+      // Tentar captureStream
+      let stream;
+      if (typeof audioEl.captureStream === 'function') {
+        stream = audioEl.captureStream();
+      } else if (typeof audioEl.mozCaptureStream === 'function') {
+        stream = audioEl.mozCaptureStream();
+      }
+
+      if (stream) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = true;
+        recognition.interimResults = false;
+
+        const transcription = await new Promise((resolve) => {
+          let text = '';
+          let timer = null;
+
+          recognition.onresult = (ev) => {
+            for (let i = ev.resultIndex; i < ev.results.length; i++) {
+              if (ev.results[i].isFinal) text += ev.results[i][0].transcript + ' ';
+            }
+          };
+          recognition.onerror = () => {};
+          recognition.onend = () => resolve(text.trim());
+
+          try { recognition.start(); } catch(e) { resolve(''); return; }
+          audioEl.play().catch(() => resolve(''));
+          timer = setTimeout(() => { try { recognition.stop(); } catch(e){} }, (duration * 1000) + 10000);
+        });
+
+        URL.revokeObjectURL(audioUrl);
+        audioCtx.close();
+        clearTimeout(timer);
+
+        if (transcription.length > 5) {
+          output += `\nTRANSCRIÇÃO (Web Speech API):\n\n${transcription}`;
+          log(`  Transcrição: ${transcription.substring(0,80)}...`, 'dim');
+        } else {
+          output += `\n[Transcrição: áudio processado mas nenhum texto detectado.\n` +
+                    `O reconhecimento de fala do navegador tem limitações com áudio gravado.\n` +
+                    `Para melhor resultado, use Whisper (OpenAI), Azure Speech ou Google STT.]`;
+          log('  Áudio: nenhum texto detectado pela Web Speech API.', 'warntext');
+        }
+        f.content = output;
+      } else {
+        URL.revokeObjectURL(audioUrl);
+        audioCtx.close();
+        f.content = output + '\n[captureStream() não suportado neste navegador.]\n' +
+                    'Para transcrição, use Whisper (OpenAI), Azure Speech ou Google STT.';
+        log('  captureStream() não disponível.', 'warntext');
+      }
+    } catch(speechErr) {
+      audioCtx.close();
+      f.content = output + `\n[Transcrição falhou: ${speechErr.message}]\n` +
+                  'Para transcrição, use Whisper (OpenAI), Azure Speech ou Google STT.';
+      log(`  Web Speech API falhou: ${speechErr.message}`, 'warntext');
+    }
+  } catch (e) {
+    f.content = `[Erro ao processar áudio ${f.name}: ${e.message}]`;
+  }
+}
+
+// Converter AudioBuffer para WAV
+function audioBufferToWav(buffer) {
+  const numCh = buffer.numberOfChannels;
+  const sr = buffer.sampleRate;
+  const bd = 16;
+  const bps = bd / 8;
+  const ba = numCh * bps;
+  const ds = buffer.length * ba;
+  const ab = new ArrayBuffer(44 + ds);
+  const v = new DataView(ab);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + ds, true); ws(8, 'WAVE');
+  ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, numCh, true); v.setUint32(24, sr, true);
+  v.setUint32(28, sr * ba, true); v.setUint16(32, ba, true); v.setUint16(34, bd, true);
+  ws(36, 'data'); v.setUint32(40, ds, true);
+  let off = 44;
+  for (let i = 0; i < buffer.length; i++)
+    for (let ch = 0; ch < numCh; ch++) {
+      const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+      v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true); off += 2;
+    }
+  return new Blob([ab], {type: 'audio/wav'});
+}
+
+/* ============================================================
+   EXPORT TO DOCX
+   ============================================================ */
+$('exportBtn').onclick = () => exportDOCX();
+
+async function exportDOCX() {
+  const doneFiles = files.filter(f => f.status === 'done');
+  if (doneFiles.length === 0) {
+    log('Nenhum arquivo processado para exportar.', 'warntext');
+    return;
+  }
+
+  log('Gerando documento .docx...', 'info');
+
+  try {
+    const { Document, Packer, Paragraph, TextRun, AlignmentType,
+            BorderStyle, PageBreak, Table, TableRow, TableCell,
+            WidthType, ShadingType, convertInchesToTwip,
+            Footer, SimpleField, InternalHyperlink, Bookmark } = docx;
+
+    const ACCENT = '1B5E8C';      // azul profundo
+    const ACCENT2 = '2E74B5';     // azul médio
+    const ACCENT_LIGHT = 'D6EAF8'; // azul claro
+    const MUTED = '7F8C8D';
+    const DARK = '2C3E50';
+    const WHITE = 'FFFFFF';
+    const LIGHT_BG = 'F8F9FA';
+    const BORDER_COLOR = 'BDC3C7';
+    const children = [];
+
+    // Helper: full-width colored bar (decorative)
+    function accentBar(color, height) {
+      return new Table({
+        width:{size:100, type:WidthType.PERCENTAGE},
+        rows:[new TableRow({height:{value:height, rule:'atLeast'}, children:[
+          new TableCell({
+            shading:{type:ShadingType.SOLID, color:color},
+            borders:{top:{style:BorderStyle.NONE,size:0},bottom:{style:BorderStyle.NONE,size:0},left:{style:BorderStyle.NONE,size:0},right:{style:BorderStyle.NONE,size:0}},
+            children:[new Paragraph({spacing:{after:0}, children:[new TextRun({text:'', size:2})]})]
+          })
+        ]})]
+      });
+    }
+
+    // ============================================================
+    // CAPA — Layout profissional
+    // ============================================================
+    children.push(new Paragraph({spacing:{after:400}, children:[]}));
+    children.push(accentBar(ACCENT, 120));  // barra decorativa
+    children.push(new Paragraph({spacing:{after:80}, children:[]}));
+
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing:{after:60},
+      children:[new TextRun({text:'COMPILADO', bold:true, size:24, font:'Calibri', color:MUTED, characterSpacing:200})]
+    }));
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing:{after:120},
+      children:[new TextRun({text:'Cronológico de Documentos', bold:true, size:56, font:'Calibri', color:DARK})]
+    }));
+    children.push(accentBar(ACCENT2, 60));  // barra fina
+
+    children.push(new Paragraph({spacing:{after:300}, children:[]}));
+
+    // Info box centralizado
+    children.push(new Table({
+      width:{size:60, type:WidthType.PERCENTAGE},
+      alignment: AlignmentType.CENTER,
+      rows:[new TableRow({children:[
+        new TableCell({
+          width:{size:100, type:WidthType.PERCENTAGE},
+          shading:{type:ShadingType.SOLID, color:LIGHT_BG},
+          borders:{top:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR},bottom:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR},left:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR},right:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR}},
+          margins:{top:120,bottom:120,left:200,right:200},
+          children:[
+            new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:80}, children:[
+              new TextRun({text:'Pasta de origem:', size:18, font:'Calibri', color:MUTED}),
+            ]}),
+            new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:160}, children:[
+              new TextRun({text: folderHandle ? folderHandle.name : 'N/A', bold:true, size:24, font:'Calibri', color:DARK}),
+            ]}),
+            new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:80}, children:[
+              new TextRun({text:`${doneFiles.length} arquivo(s) processado(s)`, size:20, font:'Calibri', color:MUTED}),
+            ]}),
+            new Paragraph({alignment:AlignmentType.CENTER, spacing:{after:0}, children:[
+              new TextRun({text:`Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`, size:18, font:'Calibri', color:MUTED}),
+            ]}),
+          ]
+        })
+      ]})]
+    }));
+
+    children.push(new Paragraph({children:[new PageBreak()]}));
+
+    // ============================================================
+    // ÍNDICE — Tabela com hiperlinks
+    // ============================================================
+    children.push(new Paragraph({
+      spacing:{before:200, after:80},
+      children:[new TextRun({text:'Índice de Arquivos', bold:true, size:36, font:'Calibri', color:ACCENT})]
+    }));
+    children.push(accentBar(ACCENT, 50));
+    children.push(new Paragraph({spacing:{after:200}, children:[]}));
+
+    // Header row with hyperlinks
+    const headerShading = {type:ShadingType.SOLID, color:ACCENT};
+    const noBorder = {style:BorderStyle.NONE, size:0, color:WHITE};
+    const thinBorder = {style:BorderStyle.SINGLE, size:1, color:BORDER_COLOR};
+    const headerBorders = {top:thinBorder, bottom:thinBorder, left:noBorder, right:noBorder};
+    const cellBorders = {top:thinBorder, bottom:thinBorder, left:noBorder, right:noBorder};
+
+    const indexRows = [
+      new TableRow({tableHeader:true, children:[
+        new TableCell({width:{size:8,type:WidthType.PERCENTAGE},shading:headerShading,borders:headerBorders,children:[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:'#',bold:true,size:18,font:'Calibri',color:WHITE})]})]}),
+        new TableCell({width:{size:10,type:WidthType.PERCENTAGE},shading:headerShading,borders:headerBorders,children:[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:'Tipo',bold:true,size:18,font:'Calibri',color:WHITE})]})]}),
+        new TableCell({width:{size:47,type:WidthType.PERCENTAGE},shading:headerShading,borders:headerBorders,children:[new Paragraph({children:[new TextRun({text:'Arquivo',bold:true,size:18,font:'Calibri',color:WHITE})]})]}),
+        new TableCell({width:{size:20,type:WidthType.PERCENTAGE},shading:headerShading,borders:headerBorders,children:[new Paragraph({children:[new TextRun({text:'Data',bold:true,size:18,font:'Calibri',color:WHITE})]})]}),
+        new TableCell({width:{size:15,type:WidthType.PERCENTAGE},shading:headerShading,borders:headerBorders,children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:'Tam.',bold:true,size:18,font:'Calibri',color:WHITE})]})]}),
+      ]})
+    ];
+
+    doneFiles.forEach((f, i) => {
+      const dateStr = new Date(f.lastModified).toLocaleDateString('pt-BR');
+      const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
+                      f.size > 1024 ? (f.size/1024).toFixed(0)+' KB' : f.size+' B';
+      const rowBg = i % 2 === 0 ? undefined : {type:ShadingType.SOLID, color:LIGHT_BG};
+
+      // File name cell with hyperlink to bookmark
+      const fileNameCell = new TableCell({
+        width:{size:47,type:WidthType.PERCENTAGE},borders:cellBorders,shading:rowBg,
+        children:[new Paragraph({children:[
+          new InternalHyperlink({
+            anchor: 'file_' + i,
+            children: [new TextRun({text:f.name, size:20, font:'Calibri', color:ACCENT2, underline:{type:'single'}})]
+          })
+        ]})]
+      });
+
+      indexRows.push(new TableRow({children:[
+        new TableCell({width:{size:8,type:WidthType.PERCENTAGE},borders:cellBorders,shading:rowBg,children:[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:String(i+1),bold:true,size:20,font:'Calibri',color:ACCENT2})]})]}),
+        new TableCell({width:{size:10,type:WidthType.PERCENTAGE},borders:cellBorders,shading:rowBg,children:[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:docxIcon(f.type),size:18,font:'Calibri',color:MUTED})]})]}),
+        fileNameCell,
+        new TableCell({width:{size:20,type:WidthType.PERCENTAGE},borders:cellBorders,shading:rowBg,children:[new Paragraph({children:[new TextRun({text:dateStr,size:18,font:'Calibri',color:MUTED})]})]}),
+        new TableCell({width:{size:15,type:WidthType.PERCENTAGE},borders:cellBorders,shading:rowBg,children:[new Paragraph({alignment:AlignmentType.RIGHT,children:[new TextRun({text:sizeStr,size:18,font:'Calibri',color:MUTED})]})]}),
+      ]}));
+    });
+
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE}, rows:indexRows}));
+    children.push(new Paragraph({children:[new PageBreak()]}));
+
+    // ============================================================
+    // CONTEÚDO DE CADA ARQUIVO
+    // ============================================================
+    doneFiles.forEach((f, i) => {
+      const dateStr = new Date(f.lastModified).toLocaleString('pt-BR');
+      const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
+                      f.size > 1024 ? (f.size/1024).toFixed(0)+' KB' : f.size+' B';
+
+      // Cabeçalho: barra colorida + título
+      children.push(accentBar(ACCENT2, 80));
+      children.push(new Paragraph({
+        spacing:{before:200, after:80},
+        children:[
+          new Bookmark({
+            id: 'file_' + i,
+            children: [
+              new TextRun({text:`${docxIcon(f.type)}  `, size:24, font:'Calibri', color:ACCENT2}),
+              new TextRun({text:f.name, bold:true, size:30, font:'Calibri', color:DARK}),
+            ]
+          })
+        ]
+      }));
+
+      // Metadados em tabela compacta
+      children.push(new Table({
+        width:{size:100, type:WidthType.PERCENTAGE},
+        rows:[new TableRow({children:[
+          new TableCell({
+            width:{size:100, type:WidthType.PERCENTAGE},
+            shading:{type:ShadingType.SOLID, color:LIGHT_BG},
+            borders:{top:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR},bottom:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR},left:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR},right:{style:BorderStyle.SINGLE,size:1,color:BORDER_COLOR}},
+            margins:{top:60,bottom:60,left:120,right:120},
+            children:[
+              new Paragraph({spacing:{after:0}, children:[
+                new TextRun({text:'Tipo: ', bold:true, size:18, font:'Calibri', color:MUTED}),
+                new TextRun({text:f.type.toUpperCase(), size:18, font:'Calibri', color:DARK}),
+                new TextRun({text:'   |   Data: ', bold:true, size:18, font:'Calibri', color:MUTED}),
+                new TextRun({text:dateStr, size:18, font:'Calibri', color:DARK}),
+                new TextRun({text:'   |   Tamanho: ', bold:true, size:18, font:'Calibri', color:MUTED}),
+                new TextRun({text:sizeStr, size:18, font:'Calibri', color:DARK}),
+              ]}),
+            ]
+          })
+        ]})]
+      }));
+
+      children.push(new Paragraph({spacing:{after:160}, children:[]}));
+
+      // Conteúdo — quebra em linhas (limitado a 2000 linhas)
+      const maxLines = 2000;
+      const rawLines = (f.content || '').split('\n');
+      const lines = rawLines.slice(0, maxLines);
+      if (rawLines.length > maxLines) {
+        lines.push(`\n[... conteúdo truncado: ${rawLines.length} linhas no total, mostrando as primeiras ${maxLines} ...]`);
+      }
+
+      lines.forEach(line => {
+        // Detectar linhas que parecem títulos/seções (maiúsculas, ou começando com número + ponto)
+        const isHeader = line.length > 0 && line.length < 100 && (
+          (line === line.toUpperCase() && /[A-ZÀ-Ú]/.test(line)) ||
+          /^\d+\.\s/.test(line) ||
+          /^---\s*Página/.test(line)
+        );
+        const isPageBreak = /^---\s*Página/.test(line);
+
+        if (isPageBreak) {
+          // Separador de página PDF
+          children.push(new Paragraph({spacing:{before:200, after:80}, children:[
+            new TextRun({text:line, bold:true, size:18, font:'Calibri', color:ACCENT2, italics:true}),
+          ]}));
+        } else if (isHeader) {
+          children.push(new Paragraph({
+            spacing:{before:120, after:60},
+            children:[new TextRun({text:line, bold:true, size:22, font:'Calibri', color:ACCENT})]
+          }));
+        } else {
+          children.push(new Paragraph({
+            spacing:{after:30},
+            indent:{left: convertInchesToTwip(0.15)},
+            children:[new TextRun({text: line || '\u00A0', size:21, font:'Calibri', color:DARK})]
+          }));
+        }
+      });
+
+      // Page break entre arquivos (exceto último)
+      if (i < doneFiles.length - 1) {
+        children.push(new Paragraph({spacing:{before:200}, children:[new PageBreak()]}));
+      }
+    });
+
+    // ============================================================
+    // RODAPÉ FINAL
+    // ============================================================
+    children.push(new Paragraph({spacing:{before:400}, children:[]}));
+    children.push(accentBar(ACCENT, 50));
+    children.push(new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing:{before:120},
+      children:[new TextRun({text:'Documento gerado automaticamente por Documentos em Ordem', size:16, font:'Calibri', color:MUTED, italics:true})]
+    }));
+
+    // Rodapé com numeração de páginas
+    const footer = new Footer({
+      children: [
+        new Table({
+          width:{size:100, type:WidthType.PERCENTAGE},
+          rows:[new TableRow({children:[
+            new TableCell({
+              width:{size:50, type:WidthType.PERCENTAGE},
+              borders:{top:{style:BorderStyle.NONE,size:0},bottom:{style:BorderStyle.NONE,size:0},left:{style:BorderStyle.NONE,size:0},right:{style:BorderStyle.NONE,size:0}},
+              margins:{top:60,bottom:60,left:120,right:0},
+              children:[new Paragraph({alignment:AlignmentType.LEFT, children:[
+                new TextRun({text:'Compilado Cronológico', size:16, font:'Calibri', color:MUTED, italics:true}),
+              ]})]
+            }),
+            new TableCell({
+              width:{size:50, type:WidthType.PERCENTAGE},
+              borders:{top:{style:BorderStyle.NONE,size:0},bottom:{style:BorderStyle.NONE,size:0},left:{style:BorderStyle.NONE,size:0},right:{style:BorderStyle.NONE,size:0}},
+              margins:{top:60,bottom:60,left:0,right:120},
+              children:[new Paragraph({alignment:AlignmentType.RIGHT, children:[
+                new TextRun({text:'Página ', size:16, font:'Calibri', color:MUTED}),
+                new TextRun({children:[new SimpleField('PAGE')], size:16, font:'Calibri', color:MUTED}),
+                new TextRun({text:' de ', size:16, font:'Calibri', color:MUTED}),
+                new TextRun({children:[new SimpleField('NUMPAGES')], size:16, font:'Calibri', color:MUTED}),
+              ]})]
+            }),
+          ]})]
+        })
+      ]
+    });
+
+    // Criar documento
+    const doc = new Document({
+      creator: 'Documentos em Ordem',
+      title: 'Compilado Cronológico',
+      description: `Compilado de ${doneFiles.length} arquivos processados`,
+      sections: [{
+        properties: {
+          page: {
+            margin: { top: 1200, right: 1000, bottom: 1200, left: 1000 }
+          }
+        },
+        footers: { default: footer },
+        children: children
+      }]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const filename = `compilado_cronologico_${new Date().toISOString().slice(0,10)}.docx`;
+    saveAs(blob, filename);
+
+    log(`✔ Documento exportado: <strong>${filename}</strong> (${(blob.size/1024).toFixed(0)} KB)`, 'ok');
+  } catch (e) {
+    log(`✘ Erro ao gerar .docx: ${e.message}`, 'err');
+    console.error(e);
+  }
+}
+
+/* ============================================================
+   SUPPRESS HARMLESS WARNINGS
+   ============================================================ */
+// PDF.js emite "TT: undefined function: 32" para fontes TrueType incompletas — é inofensivo
+const _origWarn = console.warn;
+console.warn = function(...args) {
+  const msg = args.join(' ');
+  if (msg.includes('TT: undefined function') || msg.includes('Unsafe attempt to load URL')) return;
+  _origWarn.apply(console, args);
+};
+
+/* ============================================================
+   LOCAL SERVER DETECTION & AUTO-START
+   ============================================================ */
+(function initServerPanel() {
+  const isSecure = location.protocol === 'http:' || location.protocol === 'https:';
+  const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const COMMON_PORTS = [8080, 3000, 5000, 4000, 8000, 8888, 9000, 3001];
+  const pageName = location.pathname.split('/').pop() || 'Documentos_em_ordem.html';
+
+  if (isSecure && isLocalhost) {
+    // Already running on a local server — show status
+    $('serverDot').className = 'server-dot on';
+    $('serverStatusText').textContent = 'Servidor ativo';
+    $('serverBadge').textContent = 'ativo';
+    $('serverBadge').style.cssText = 'background:rgba(34,197,94,.15);color:#22c55e';
+    $('serverUrlBox').style.display = '';
+    $('serverUrlDisplay').textContent = location.href;
+    $('serverSetup').style.display = 'none';
+    $('openServerBtn').textContent = '🔄 Recarregar';
+    $('openServerBtn').onclick = () => location.reload();
+    log(`✔ Servidor local ativo: <code>${location.href}</code>`, 'ok');
+  } else {
+    // Running from file:// — show setup instructions
+    $('serverDot').className = 'server-dot off';
+    $('serverStatusText').textContent = 'Sem servidor (file://)';
+    $('serverBadge').textContent = 'file://';
+    $('serverSetup').style.display = '';
+    $('serverUrlBox').style.display = 'none';
+
+    // Build the command based on the file's directory
+    const dirPath = location.pathname.substring(0, location.pathname.lastIndexOf('/'));
+    const dirName = decodeURIComponent(dirPath.split('/').pop() || '.');
+    $('serverCmdText').textContent = `cd "${dirName}" && npx serve .`;
+  }
+
+  // Copy command button
+  $('copyCmdBtn').onclick = async () => {
+    const cmd = $('serverCmdText').textContent;
+    try {
+      await navigator.clipboard.writeText(cmd);
+      $('copyCmdBtn').textContent = '✔ Copiado!';
+      setTimeout(() => { $('copyCmdBtn').textContent = 'Copiar'; }, 1500);
+    } catch(e) {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = cmd; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+      $('copyCmdBtn').textContent = '✔ Copiado!';
+      setTimeout(() => { $('copyCmdBtn').textContent = 'Copiar'; }, 1500);
+    }
+  };
+
+  // Port scanning
+  $('tryServerBtn').onclick = async () => {
+    const container = $('portScan');
+    container.innerHTML = '';
+    $('tryServerBtn').disabled = true;
+    $('tryServerBtn').textContent = '⏳ Verificando...';
+
+    const results = await Promise.all(COMMON_PORTS.map(async (port) => {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 1500);
+        const resp = await fetch(`http://localhost:${port}/${pageName}`, {
+          method: 'HEAD', mode: 'no-cors', signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        return { port, alive: true };
+      } catch(e) {
+        return { port, alive: false };
+      }
+    }));
+
+    const foundPorts = results.filter(r => r.alive);
+    container.innerHTML = '';
+
+    results.forEach(r => {
+      const chip = document.createElement('span');
+      chip.className = `port-chip${r.alive ? ' found' : ''}`;
+      chip.textContent = `:${r.port}${r.alive ? ' ✓' : ''}`;
+      if (r.alive) {
+        chip.onclick = () => {
+          window.open(`http://localhost:${r.port}/${pageName}`, '_blank');
+        };
+        chip.title = `Abrir http://localhost:${r.port}/${pageName}`;
+      }
+      container.appendChild(chip);
+    });
+
+    $('tryServerBtn').disabled = false;
+    $('tryServerBtn').textContent = '🔍 Verificar portas';
+
+    if (foundPorts.length > 0) {
+      log(`Portas com servidor ativo: ${foundPorts.map(r => ':' + r.port).join(', ')}`, 'ok');
+      // Auto-redirect: if exactly one port found, offer to open it
+      if (foundPorts.length === 1) {
+        const url = `http://localhost:${foundPorts[0].port}/${pageName}`;
+        $('serverDot').className = 'server-dot on';
+        $('serverStatusText').textContent = `Encontrado na porta :${foundPorts[0].port}`;
+        $('serverBadge').textContent = `:${foundPorts[0].port}`;
+        $('serverBadge').style.cssText = 'background:rgba(34,197,94,.15);color:#22c55e';
+        $('serverUrlBox').style.display = '';
+        $('serverUrlDisplay').textContent = url;
+        $('openServerBtn').textContent = '🚀 Abrir no servidor';
+        $('openServerBtn').onclick = () => { window.open(url, '_blank'); };
+      } else {
+        log('Múltiplos servidores encontrados. Clique numa porta para abrir.', 'info');
+      }
+    } else {
+      log('Nenhum servidor encontrado nas portas comuns. Inicie com o comando acima.', 'warntext');
+    }
+  };
+})();
+
+/* ============================================================
+   INITIAL STATE
+   ============================================================ */
+log('Aplicação pronta. Selecione uma pasta para começar.', 'info');
+</script>
+</body>
+</html>

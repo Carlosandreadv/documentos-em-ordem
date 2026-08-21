@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consulta Brasil — APIs Públicas Integradas</title>
+<style>
+:root {
+  --primary: #0066cc;
+  --primary-dark: #004999;
+  --success: #0a7c42;
+  --danger: #c0392b;
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --text: #1a1a1a;
+  --muted: #5a6a7a;
+  --border: #dde3ea;
+  --radius: 12px;
+  --shadow: 0 4px 20px rgba(0,0,0,.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  padding: 16px;
+  min-height: 100vh;
+}
+.container { max-width: 980px; margin: 0 auto; }
+header { text-align: center; margin-bottom: 24px; padding: 8px 0; }
+header h1 { font-size: 1.8rem; color: var(--primary); font-weight: 700; letter-spacing: -0.02em; }
+header p { color: var(--muted); font-size: 0.92rem; margin-top: 6px; }
+.tabs {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; justify-content: center;
+}
+.tab {
+  background: var(--card); border: 1px solid var(--border); padding: 8px 14px;
+  border-radius: 999px; cursor: pointer; font-size: 0.84rem; font-weight: 500;
+  color: var(--muted); transition: all .2s;
+}
+.tab:hover { border-color: var(--primary); color: var(--primary); }
+.tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.card {
+  background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 22px; margin-bottom: 18px; display: none;
+}
+.card.active { display: block; }
+.card h2 {
+  font-size: 1.2rem; margin-bottom: 14px; color: var(--primary);
+  display: flex; align-items: center; gap: 8px;
+}
+.linha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 640px) { .linha { grid-template-columns: 1fr; } }
+label { font-size: 0.88rem; color: var(--muted); display: block; margin-bottom: 2px; }
+input, select {
+  width: 100%; padding: 11px 13px; margin: 2px 0 12px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 0.98rem;
+}
+input:focus, select:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0,102,204,.15);
+}
+button {
+  background: var(--primary); color: #fff; border: none; padding: 11px 20px;
+  border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  transition: background .2s; display: inline-flex; align-items: center; gap: 6px;
+}
+button:hover { background: var(--primary-dark); }
+button:disabled { background: #a0b0c0; cursor: not-allowed; }
+.btn-secondary { background: #e8eef5; color: var(--primary); }
+.btn-secondary:hover { background: #d0dce8; }
+.resultado { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+.loading { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 14px 0; }
+.spinner {
+  width: 20px; height: 20px; border: 3px solid var(--border);
+  border-top-color: var(--primary); border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.erro {
+  background: #fdecea; color: var(--danger); padding: 12px 14px;
+  border-radius: 8px; margin: 10px 0; font-size: 0.93rem;
+}
+.secao {
+  margin-bottom: 16px; background: #f8fafc; border-radius: 10px;
+  padding: 14px; border: 1px solid var(--border);
+}
+.secao h3 {
+  font-size: 1rem; color: var(--primary-dark); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+.secao h3 .fonte {
+  font-size: 0.72rem; font-weight: 400; color: var(--muted);
+  background: #e8eef5; padding: 2px 7px; border-radius: 999px;
+}
+.dl { display: grid; grid-template-columns: 130px 1fr; gap: 5px 10px; font-size: 0.92rem; }
+.dl dt { color: var(--muted); font-weight: 500; }
+.dl dd { word-break: break-word; }
+.dl dd.destaque { font-weight: 600; color: var(--success); }
+.lista-itens { list-style: none; max-height: 260px; overflow-y: auto; font-size: 0.88rem; }
+.lista-itens li { padding: 5px 0; border-bottom: 1px solid var(--border); }
+.lista-itens li:last-child { border-bottom: none; }
+.badge {
+  display: inline-block; padding: 2px 7px; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 600;
+}
+.badge-ativa { background: #d4edda; color: #155724; }
+.badge-inativa { background: #f8d7da; color: #721c24; }
+.badge-info { background: #d1ecf1; color: #0c5460; }
+.enriquecido { border-left: 4px solid var(--success); }
+.hint { font-size: 0.84rem; color: var(--muted); margin-top: -6px; margin-bottom: 12px; }
+footer {
+  text-align: center; margin-top: 28px; padding: 14px;
+  color: var(--muted); font-size: 0.82rem;
+}
+footer a { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🇧🇷 Consulta Brasil</h1>
+    <p>APIs públicas oficiais integradas — CEP, CNPJ, Processos (DataJud), Taxas, FIPE, PIX e mais.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="cep">📍 CEP</button>
+    <button class="tab" data-tab="endereco">🔍 Endereço</button>
+    <button class="tab" data-tab="cnpj">🏢 CNPJ</button>
+    <button class="tab" data-tab="processos">⚖️ Processos</button>
+    <button class="tab" data-tab="ddd">📞 DDD</button>
+    <button class="tab" data-tab="bancos">🏦 Bancos</button>
+    <button class="tab" data-tab="taxas">📈 Taxas</button>
+    <button class="tab" data-tab="fipe">🚗 FIPE</button>
+    <button class="tab" data-tab="pix">💠 PIX</button>
+    <button class="tab" data-tab="feriados">📅 Feriados</button>
+    <button class="tab" data-tab="corretoras">📊 Corretoras</button>
+  </div>
+
+  <!-- CEP -->
+  <div class="card active" id="tab-cep">
+    <h2>Consultar CEP</h2>
+    <p class="hint">ViaCEP + BrasilAPI (v1/v2) em paralelo + enriquecimento IBGE e DDD.</p>
+    <input id="cep" type="text" placeholder="CEP (ex: 01310-100)" maxlength="9" inputmode="numeric">
+    <button onclick="buscarCEP()">Consultar</button>
+    <div id="resultadoCEP" class="resultado"></div>
+  </div>
+
+  <!-- Endereço -->
+  <div class="card" id="tab-endereco">
+    <h2>Endereço → CEP</h2>
+    <p class="hint">ViaCEP. Clique em um resultado para enriquecer com dados completos.</p>
+    <div class="linha">
+      <div><label>UF</label><input id="uf" type="text" placeholder="SP" maxlength="2" style="text-transform:uppercase"></div>
+      <div><label>Cidade</label><input id="cidade" type="text" placeholder="São Paulo"></div>
+    </div>
+    <label>Logradouro / Rua</label>
+    <input id="rua" type="text" placeholder="Avenida Paulista">
+    <button onclick="buscarEndereco()">Pesquisar</button>
+    <div id="resultadoEndereco" class="resultado"></div>
+  </div>
+
+  <!-- CNPJ -->
+  <div class="card" id="tab-cnpj">
+    <h2>Consultar CNPJ</h2>
+    <p class="hint">BrasilAPI (Receita). Após a consulta, o CEP da empresa é enriquecido automaticamente.</p>
+    <input id="cnpj" type="text" placeholder="CNPJ (ex: 00.000.000/0001-91)" maxlength="18" inputmode="numeric">
+    <button onclick="buscarCNPJ()">Consultar</button>
+    <div id="resultadoCNPJ" class="resultado"></div>
+  </div>
+
+  <!-- Processos DataJud -->
+  <div class="card" id="tab-processos">
+    <h2>Processos Judiciais (DataJud / CNJ)</h2>
+    <p class="hint">API Pública oficial do CNJ. Consulta por <strong>número único do processo</strong>. Dados de capas e movimentações públicas. Processos sigilosos e dados sensíveis de partes são protegidos pela própria API.</p>
+    <div class="linha">
+      <div>
+        <label>Tribunal</label>
+        <select id="tribunal">
+          <optgroup label="Superiores">
+            <option value="stj">STJ</option>
+            <option value="tst">TST</option>
+            <option value="tse">TSE</option>
+            <option value="stm">STM</option>
+          </optgroup>
+          <optgroup label="Justiça Estadual (principais)">
+            <option value="tjsp" selected>TJSP — São Paulo</option>
+            <option value="tjrj">TJRJ — Rio de Janeiro</option>
+            <option value="tjmg">TJMG — Minas Gerais</option>
+            <option value="tjrs">TJRS — Rio Grande do Sul</option>
+            <option value="tjpr">TJPR — Paraná</option>
+            <option value="tjsc">TJSC — Santa Catarina</option>
+            <option value="tjba">TJBA — Bahia</option>
+            <option value="tjce">TJCE — Ceará</option>
+            <option value="tjpe">TJPE — Pernambuco</option>
+            <option value="tjgo">TJGO — Goiás</option>
+            <option value="tjdft">TJDFT — DF</option>
+            <option value="tjes">TJES — Espírito Santo</option>
+            <option value="tjmt">TJMT — Mato Grosso</option>
+            <option value="tjms">TJMS — Mato Grosso do Sul</option>
+            <option value="tjpa">TJPA — Pará</option>
+            <option value="tjam">TJAM — Amazonas</option>
+            <option value="tjma">TJMA — Maranhão</option>
+            <option value="tjpb">TJPB — Paraíba</option>
+            <option value="tjrn">TJRN — Rio Grande do Norte</option>
+            <option value="tjal">TJAL — Alagoas</option>
+            <option value="tjse">TJSE — Sergipe</option>
+            <option value="tjpi">TJPI — Piauí</option>
+            <option value="tjto">TJTO — Tocantins</option>
+            <option value="tjro">TJRO — Rondônia</option>
+            <option value="tjac">TJAC — Acre</option>
+            <option value="tjap">TJAP — Amapá</option>
+            <option value="tjrr">TJRR — Roraima</option>
+          </optgroup>
+          <optgroup label="Justiça Federal">
+            <option value="trf1">TRF1</option>
+            <option value="trf2">TRF2</option>
+            <option value="trf3">TRF3</option>
+            <option value="trf4">TRF4</option>
+            <option value="trf5">TRF5</option>
+            <option value="trf6">TRF6</option>
+          </optgroup>
+          <optgroup label="Justiça do Trabalho (principais)">
+            <option value="trt1">TRT1</option>
+            <option value="trt2">TRT2</option>
+            <option value="trt3">TRT3</option>
+            <option value="trt4">TRT4</option>
+            <option value="trt5">TRT5</option>
+            <option value="trt15">TRT15</option>
+          </optgroup>
+        </select>
+      </div>
+      <div>
+        <label>Número do processo (CNJ)</label>
+        <input id="numeroProcesso" type="text" placeholder="Ex: 0001234-56.2023.8.26.0100">
+      </div>
+    </div>
+    <button onclick="buscarProcesso()">Consultar processo</button>
+    <div id="resultadoProcesso" class="resultado"></div>
+  </div>
+
+  <!-- DDD -->
+  <div class="card" id="tab-ddd">
+    <h2>Consultar DDD</h2>
+    <p class="hint">BrasilAPI — estados e cidades cobertas pelo código de área.</p>
+    <input id="ddd" type="text" placeholder="DDD (ex: 11)" maxlength="2" inputmode="numeric">
+    <button onclick="buscarDDD()">Consultar</button>
+    <div id="resultadoDDD" class="resultado"></div>
+  </div>
+
+  <!-- Bancos -->
+  <div class="card" id="tab-bancos">
+    <h2>Bancos</h2>
+    <p class="hint">BrasilAPI — lista completa ou busca por código COMPE.</p>
+    <div class="linha">
+      <div>
+        <label>Código do banco (opcional)</label>
+        <input id="bancoCodigo" type="text" placeholder="Ex: 001" inputmode="numeric">
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
+        <button onclick="buscarBancos(false)">Listar todos</button>
+        <button class="btn-secondary" onclick="buscarBancos(true)">Por código</button>
+      </div>
+    </div>
+    <div id="resultadoBancos" class="resultado"></div>
+  </div>
+
+  <!-- Taxas -->
+  <div class="card" id="tab-taxas">
+    <h2>Taxas oficiais</h2>
+    <p class="hint">BrasilAPI — Selic, CDI, IPCA e outras taxas de referência.</p>
+    <button onclick="buscarTaxas()">Carregar taxas</button>
+    <div id="resultadoTaxas" class="resultado"></div>
+  </div>
+
+  <!-- FIPE -->
+  <div class="card" id="tab-fipe">
+    <h2>Tabela FIPE</h2>
+    <p class="hint">BrasilAPI — marcas e veículos. Selecione o tipo, depois a marca.</p>
+    <div class="linha">
+      <div>
+        <label>Tipo de veículo</label>
+        <select id="fipeTipo">
+          <option value="carros">Carros</option>
+          <option value="motos">Motos</option>
+          <option value="caminhoes">Caminhões</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end;">
+        <button onclick="buscarFipeMarcas()">Listar marcas</button>
+      </div>
+    </div>
+    <div id="fipeMarcasBox" style="display:none;margin-top:10px;">
+      <label>Marca</label>
+      <select id="fipeMarca"></select>
+      <button onclick="buscarFipeVeiculos()" style="margin-top:8px;">Listar veículos da marca</button>
+    </div>
+    <div id="resultadoFipe" class="resultado"></div>
+  </div>
+
+  <!-- PIX -->
+  <div class="card" id="tab-pix">
+    <h2>Participantes do PIX</h2>
+    <p class="hint">BrasilAPI — instituições participantes do sistema PIX (Banco Central).</p>
+    <button onclick="buscarPIX()">Carregar participantes</button>
+    <div id="resultadoPIX" class="resultado"></div>
+  </div>
+
+  <!-- Feriados -->
+  <div class="card" id="tab-feriados">
+    <h2>Feriados Nacionais</h2>
+    <p class="hint">BrasilAPI.</p>
+    <input id="anoFeriado" type="number" placeholder="Ano" value="2026" min="2000" max="2100">
+    <button onclick="buscarFeriados()">Consultar</button>
+    <div id="resultadoFeriados" class="resultado"></div>
+  </div>
+
+  <!-- Corretoras -->
+  <div class="card" id="tab-corretoras">
+    <h2>Corretoras (CVM)</h2>
+    <p class="hint">BrasilAPI — corretoras registradas na CVM. Lista ou busca por CNPJ.</p>
+    <div class="linha">
+      <div>
+        <label>CNPJ da corretora (opcional)</label>
+        <input id="corretoraCnpj" type="text" placeholder="Somente números" inputmode="numeric">
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
+        <button onclick="buscarCorretoras(false)">Listar todas</button>
+        <button class="btn-secondary" onclick="buscarCorretoras(true)">Por CNPJ</button>
+      </div>
+    </div>
+    <div id="resultadoCorretoras" class="resultado"></div>
+  </div>
+
+  <footer>
+    Fontes públicas: <a href="https://viacep.com.br" target="_blank" rel="noopener">ViaCEP</a> ·
+    <a href="https://brasilapi.com.br" target="_blank" rel="noopener">BrasilAPI</a> ·
+    <a href="https://datajud-wiki.cnj.jus.br/api-publica/" target="_blank" rel="noopener">DataJud/CNJ</a>.
+    Uso apenas para consulta. Dados de processos sigilosos e partes sensíveis são protegidos pela própria API do CNJ.
+  </footer>
+</div>
+
+<script>
+// ========== Tabs ==========
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ========== Helpers ==========
+function limparNumeros(str) { return (str || '').replace(/\D/g, ''); }
+
+function formatarCEP(cep) {
+  const n = limparNumeros(cep);
+  return n.length === 8 ? n.slice(0,5) + '-' + n.slice(5) : cep;
+}
+
+function formatarCNPJ(cnpj) {
+  const n = limparNumeros(cnpj);
+  return n.length === 14 ? n.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : cnpj;
+}
+
+function mostrarLoading(el) {
+  el.innerHTML = '<div class="loading"><div class="spinner"></div> Consultando APIs...</div>';
+}
+
+function mostrarErro(el, msg) {
+  el.innerHTML = `<div class="erro">⚠️ ${msg}</div>`;
+}
+
+function dlItem(label, value, destaque = false) {
+  if (value === null || value === undefined || value === '') return '';
+  return `<dt>${label}</dt><dd class="${destaque ? 'destaque' : ''}">${value}</dd>`;
+}
+
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ========== CEP ==========
+async function buscarCEP(cepOverride = null, targetEl = null) {
+  const el = targetEl || document.getElementById('resultadoCEP');
+  const cep = limparNumeros(cepOverride || document.getElementById('cep').value);
+  if (cep.length !== 8) { mostrarErro(el, 'CEP deve conter 8 dígitos.'); return; }
+  mostrarLoading(el);
+
+  try {
+    const [viaCep, brasilV1, brasilV2] = await Promise.allSettled([
+      fetchJSON(`https://viacep.com.br/ws/${cep}/json/`),
+      fetchJSON(`https://brasilapi.com.br/api/cep/v1/${cep}`),
+      fetchJSON(`https://brasilapi.com.br/api/cep/v2/${cep}`)
+    ]);
+
+    const d = {};
+    let ok = false;
+
+    if (viaCep.status === 'fulfilled' && !viaCep.value.erro) {
+      ok = true;
+      Object.assign(d, viaCep.value);
+      d.fonte_viaCep = true;
+    }
+    if (brasilV1.status === 'fulfilled' && brasilV1.value) {
+      ok = true;
+      const b = brasilV1.value;
+      d.cep = d.cep || b.cep;
+      d.logradouro = d.logradouro || b.street;
+      d.bairro = d.bairro || b.neighborhood;
+      d.localidade = d.localidade || b.city;
+      d.uf = d.uf || b.state;
+      d.service = b.service;
+      d.fonte_brasilV1 = true;
+    }
+    if (brasilV2.status === 'fulfilled' && brasilV2.value) {
+      ok = true;
+      const b = brasilV2.value;
+      d.cep = d.cep || b.cep;
+      d.logradouro = d.logradouro || b.street;
+      d.bairro = d.bairro || b.neighborhood;
+      d.localidade = d.localidade || b.city;
+      d.uf = d.uf || b.state;
+      if (b.location?.coordinates) {
+        d.latitude = b.location.coordinates.latitude;
+        d.longitude = b.location.coordinates.longitude;
+      }
+      d.fonte_brasilV2 = true;
+    }
+
+    if (!ok) { mostrarErro(el, 'CEP não encontrado.'); return; }
+
+    let ibgeInfo = null, dddInfo = null;
+    if (d.uf && d.localidade) {
+      try {
+        const munis = await fetchJSON(`https://brasilapi.com.br/api/ibge/municipios/v1/${d.uf}`);
+        const nomeNorm = (d.localidade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        ibgeInfo = munis.find(m => {
+          const n = (m.nome || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          return n === nomeNorm || n.includes(nomeNorm) || nomeNorm.includes(n);
+        }) || null;
+      } catch (e) {}
+    }
+    if (d.ddd) {
+      try { dddInfo = await fetchJSON(`https://brasilapi.com.br/api/ddd/v1/${d.ddd}`); } catch (e) {}
+    }
+
+    const fontes = [];
+    if (d.fonte_viaCep) fontes.push('ViaCEP');
+    if (d.fonte_brasilV1) fontes.push('BrasilAPI v1');
+    if (d.fonte_brasilV2) fontes.push('BrasilAPI v2');
+
+    let html = `
+      <div class="secao">
+        <h3>📍 Endereço <span class="fonte">${fontes.join(' + ')}</span></h3>
+        <div class="dl">
+          ${dlItem('CEP', formatarCEP(d.cep), true)}
+          ${dlItem('Logradouro', d.logradouro)}
+          ${dlItem('Complemento', d.complemento)}
+          ${dlItem('Bairro', d.bairro)}
+          ${dlItem('Cidade', d.localidade)}
+          ${dlItem('UF', d.uf)}
+          ${dlItem('IBGE', d.ibge)}
+          ${dlItem('DDD', d.ddd)}
+          ${dlItem('GIA', d.gia)}
+          ${dlItem('SIAFI', d.siafi)}
+          ${dlItem('Latitude', d.latitude)}
+          ${dlItem('Longitude', d.longitude)}
+        </div>
+      </div>`;
+    if (ibgeInfo) {
+      html += `<div class="secao enriquecido"><h3>🏛️ Município (IBGE) <span class="fonte">BrasilAPI</span></h3>
+        <div class="dl">${dlItem('Nome', ibgeInfo.nome)}${dlItem('Código IBGE', ibgeInfo.codigo_ibge)}</div></div>`;
+    }
+    if (dddInfo) {
+      html += `<div class="secao enriquecido"><h3>📞 DDD ${d.ddd} <span class="fonte">BrasilAPI</span></h3>
+        <div class="dl">${dlItem('Estado', dddInfo.state)}</div>
+        <p style="margin-top:8px;font-size:0.88rem;color:var(--muted)">Cidades:</p>
+        <ul class="lista-itens">${(dddInfo.cities || []).map(c => `<li>${c}</li>`).join('')}</ul></div>`;
+    }
+    el.innerHTML = html;
+  } catch (err) {
+    mostrarErro(el, 'Erro: ' + err.message);
+  }
+}
+
+// ========== Endereço ==========
+async function buscarEndereco() {
+  const el = document.getElementById('resultadoEndereco');
+  const uf = (document.getElementById('uf').value || '').trim().toUpperCase();
+  const cidade = (document.getElementById('cidade').value || '').trim();
+  const rua = (document.getElementById('rua').value || '').trim();
+  if (!uf || uf.length !== 2 || !cidade || !rua) {
+    mostrarErro(el, 'Preencha UF, Cidade e Rua.'); return;
+  }
+  mostrarLoading(el);
+  try {
+    const dados = await fetchJSON(`https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(rua)}/json/`);
+    if (!Array.isArray(dados) || !dados.length) {
+      mostrarErro(el, 'Nenhum CEP encontrado.'); return;
+    }
+    let html = `<p style="margin-bottom:10px;color:var(--muted)">${dados.length} resultado(s). Clique para enriquecer.</p>`;
+    dados.forEach(item => {
+      const cepLimpo = limparNumeros(item.cep);
+      html += `<div class="secao" style="cursor:pointer" onclick="buscarCEP('${cepLimpo}', document.getElementById('resultadoEndereco'))">
+        <h3>📍 ${formatarCEP(item.cep)} <span class="fonte">clique para enriquecer</span></h3>
+        <div class="dl">${dlItem('Logradouro', item.logradouro)}${dlItem('Bairro', item.bairro)}
+        ${dlItem('Cidade', item.localidade)}${dlItem('UF', item.uf)}</div></div>`;
+    });
+    el.innerHTML = html;
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+// ========== CNPJ ==========
+async function buscarCNPJ() {
+  const el = document.getElementById('resultadoCNPJ');
+  const cnpj = limparNumeros(document.getElementById('cnpj').value);
+  if (cnpj.length !== 14) { mostrarErro(el, 'CNPJ deve ter 14 dígitos.'); return; }
+  mostrarLoading(el);
+  try {
+    const e = await fetchJSON(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`);
+    let html = renderEmpresa(e);
+    const cepEmpresa = limparNumeros(e.cep);
+    if (cepEmpresa.length === 8) {
+      html += `<div id="enriquecimentoCEP" class="secao enriquecido"><h3>🔄 Enriquecendo CEP...</h3><div class="loading"><div class="spinner"></div></div></div>`;
+      el.innerHTML = html;
+      try {
+        const [viaCep, brasilV2] = await Promise.allSettled([
+          fetchJSON(`https://viacep.com.br/ws/${cepEmpresa}/json/`),
+          fetchJSON(`https://brasilapi.com.br/api/cep/v2/${cepEmpresa}`)
+        ]);
+        const d = {};
+        if (viaCep.status === 'fulfilled' && !viaCep.value.erro) Object.assign(d, viaCep.value);
+        if (brasilV2.status === 'fulfilled' && brasilV2.value) {
+          const b = brasilV2.value;
+          d.logradouro = d.logradouro || b.street;
+          d.bairro = d.bairro || b.neighborhood;
+          d.localidade = d.localidade || b.city;
+          d.uf = d.uf || b.state;
+          if (b.location?.coordinates) {
+            d.latitude = b.location.coordinates.latitude;
+            d.longitude = b.location.coordinates.longitude;
+          }
+        }
+        let extra = '';
+        if (d.ddd) {
+          try {
+            const dddInfo = await fetchJSON(`https://brasilapi.com.br/api/ddd/v1/${d.ddd}`);
+            extra = `<div class="dl" style="margin-top:10px">${dlItem('DDD', d.ddd)}${dlItem('Estado (DDD)', dddInfo.state)}</div>
+              <p style="font-size:0.84rem;color:var(--muted);margin-top:6px">Cidades: ${(dddInfo.cities||[]).slice(0,12).join(', ')}${(dddInfo.cities||[]).length>12?'...':''}</p>`;
+          } catch (e) {}
+        }
+        const box = document.getElementById('enriquecimentoCEP');
+        if (box) box.innerHTML = `<h3>📍 Endereço enriquecido <span class="fonte">ViaCEP + BrasilAPI</span></h3>
+          <div class="dl">${dlItem('CEP', formatarCEP(d.cep || cepEmpresa), true)}
+          ${dlItem('Logradouro', d.logradouro || e.logradouro)}${dlItem('Bairro', d.bairro || e.bairro)}
+          ${dlItem('Cidade', d.localidade || e.municipio)}${dlItem('UF', d.uf || e.uf)}
+          ${dlItem('IBGE', d.ibge)}${dlItem('Latitude', d.latitude)}${dlItem('Longitude', d.longitude)}</div>${extra}`;
+      } catch (e) {
+        const box = document.getElementById('enriquecimentoCEP');
+        if (box) box.innerHTML = '<p class="erro">Não foi possível enriquecer o CEP.</p>';
+      }
+    } else {
+      el.innerHTML = html;
+    }
+  } catch (err) {
+    mostrarErro(el, 'CNPJ não encontrado ou erro: ' + err.message);
+  }
+}
+
+function renderEmpresa(e) {
+  const situacao = (e.descricao_situacao_cadastral || '').toUpperCase();
+  const badgeClass = situacao.includes('ATIVA') ? 'badge-ativa' : 'badge-inativa';
+  let socios = '', cnaes = '';
+  if (e.qsa?.length) {
+    socios = `<div class="secao"><h3>👥 Quadro Societário <span class="fonte">${e.qsa.length}</span></h3>
+      <ul class="lista-itens">${e.qsa.map(s => `<li><strong>${s.nome_socio || s.nome}</strong> — ${s.qualificacao_socio || s.qualificacao || ''}</li>`).join('')}</ul></div>`;
+  }
+  if (e.cnaes_secundarios?.length) {
+    cnaes = `<div class="secao"><h3>🏷️ CNAEs Secundários</h3>
+      <ul class="lista-itens">${e.cnaes_secundarios.map(c => `<li>${c.codigo} — ${c.descricao}</li>`).join('')}</ul></div>`;
+  }
+  return `
+    <div class="secao"><h3>🏢 Empresa <span class="fonte">BrasilAPI</span></h3>
+      <div class="dl">
+        ${dlItem('CNPJ', formatarCNPJ(e.cnpj), true)}
+        ${dlItem('Razão Social', e.razao_social)}
+        ${dlItem('Nome Fantasia', e.nome_fantasia)}
+        ${dlItem('Situação', `<span class="badge ${badgeClass}">${e.descricao_situacao_cadastral || '—'}</span>`)}
+        ${dlItem('Data Situação', e.data_situacao_cadastral)}
+        ${dlItem('Início Atividade', e.data_inicio_atividade)}
+        ${dlItem('Natureza Jurídica', e.natureza_juridica)}
+        ${dlItem('Porte', e.porte || e.descricao_porte)}
+        ${dlItem('Capital Social', e.capital_social != null ? 'R$ ' + Number(e.capital_social).toLocaleString('pt-BR') : null)}
+      </div></div>
+    <div class="secao"><h3>📍 Endereço cadastral</h3>
+      <div class="dl">
+        ${dlItem('Logradouro', [e.descricao_tipo_de_logradouro, e.logradouro].filter(Boolean).join(' '))}
+        ${dlItem('Número', e.numero)}${dlItem('Complemento', e.complemento)}
+        ${dlItem('Bairro', e.bairro)}${dlItem('Município', e.municipio)}
+        ${dlItem('UF', e.uf)}${dlItem('CEP', formatarCEP(e.cep))}
+      </div></div>
+    <div class="secao"><h3>📞 Contato & Atividade</h3>
+      <div class="dl">
+        ${dlItem('Telefone', e.ddd_telefone_1 ? `(${e.ddd_telefone_1})` : null)}
+        ${dlItem('E-mail', e.email)}
+        ${dlItem('CNAE Principal', e.cnae_fiscal ? `${e.cnae_fiscal} — ${e.cnae_fiscal_descricao || ''}` : null)}
+      </div></div>
+    ${socios}${cnaes}`;
+}
+
+// ========== DataJud Processos ==========
+const DATAJUD_KEY = 'cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw==';
+
+async function buscarProcesso() {
+  const el = document.getElementById('resultadoProcesso');
+  const tribunal = document.getElementById('tribunal').value;
+  let numero = (document.getElementById('numeroProcesso').value || '').trim();
+  if (!numero) { mostrarErro(el, 'Informe o número do processo.'); return; }
+
+  // Remove máscara para a query (a API costuma aceitar sem pontuação)
+  const numeroLimpo = numero.replace(/[.\-\/]/g, '');
+
+  mostrarLoading(el);
+
+  try {
+    const url = `https://api-publica.datajud.cnj.jus.br/api_publica_${tribunal}/_search`;
+    const body = {
+      query: { match: { numeroProcesso: numeroLimpo } },
+      size: 5
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `APIKey ${DATAJUD_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const hits = data.hits?.hits || [];
+
+    if (!hits.length) {
+      mostrarErro(el, 'Processo não encontrado neste tribunal (ou é sigiloso / não indexado).');
+      return;
+    }
+
+    let html = '';
+    hits.forEach((h, idx) => {
+      const s = h._source || {};
+      const movimentos = (s.movimentos || []).slice(-15).reverse();
+      html += `
+        <div class="secao">
+          <h3>⚖️ Processo ${s.numeroProcesso || numero} <span class="fonte">DataJud / ${tribunal.toUpperCase()}</span></h3>
+          <div class="dl">
+            ${dlItem('Número', s.numeroProcesso, true)}
+            ${dlItem('Classe', s.classe?.nome || (s.classe?.codigo ? 'Cód. ' + s.classe.codigo : null))}
+            ${dlItem('Assunto(s)', (s.assuntos || []).map(a => a.nome).filter(Boolean).join('; ') || null)}
+            ${dlItem('Data ajuizamento', s.dataAjuizamento ? new Date(s.dataAjuizamento).toLocaleString('pt-BR') : null)}
+            ${dlItem('Grau', s.grau)}
+            ${dlItem('Órgão julgador', s.orgaoJulgador?.nome)}
+            ${dlItem('Sistema', s.sistema?.nome)}
+            ${dlItem('Formato', s.formato?.nome)}
+            ${dlItem('Nível sigilo', s.nivelSigilo != null ? s.nivelSigilo : null)}
+          </div>
+        </div>`;
+      if (movimentos.length) {
+        html += `<div class="secao enriquecido"><h3>📜 Últimas movimentações <span class="fonte">${movimentos.length}</span></h3>
+          <ul class="lista-itens">${movimentos.map(m => {
+            const dataM = m.dataHora ? new Date(m.dataHora).toLocaleString('pt-BR') : '';
+            return `<li><strong>${dataM}</strong> — ${m.nome || m.codigo || '—'}</li>`;
+          }).join('')}</ul></div>`;
+      }
+    });
+    el.innerHTML = html;
+  } catch (err) {
+    mostrarErro(el, 'Erro na consulta DataJud: ' + err.message + '. Verifique o número e o tribunal.');
+  }
+}
+
+// ========== DDD ==========
+async function buscarDDD() {
+  const el = document.getElementById('resultadoDDD');
+  const ddd = limparNumeros(document.getElementById('ddd').value);
+  if (ddd.length < 2) { mostrarErro(el, 'Informe um DDD válido.'); return; }
+  mostrarLoading(el);
+  try {
+    const dados = await fetchJSON(`https://brasilapi.com.br/api/ddd/v1/${ddd}`);
+    el.innerHTML = `<div class="secao"><h3>📞 DDD ${ddd} <span class="fonte">BrasilAPI</span></h3>
+      <div class="dl">${dlItem('Estado', dados.state, true)}</div>
+      <p style="margin-top:12px;font-weight:500">Cidades (${(dados.cities||[]).length}):</p>
+      <ul class="lista-itens">${(dados.cities||[]).map(c => `<li>${c}</li>`).join('')}</ul></div>`;
+  } catch (err) { mostrarErro(el, 'DDD não encontrado: ' + err.message); }
+}
+
+// ========== Bancos ==========
+async function buscarBancos(porCodigo) {
+  const el = document.getElementById('resultadoBancos');
+  mostrarLoading(el);
+  try {
+    if (porCodigo) {
+      const codigo = limparNumeros(document.getElementById('bancoCodigo').value);
+      if (!codigo) { mostrarErro(el, 'Informe o código.'); return; }
+      const b = await fetchJSON(`https://brasilapi.com.br/api/banks/v1/${codigo}`);
+      el.innerHTML = `<div class="secao"><h3>🏦 ${b.name || b.fullName} <span class="fonte">BrasilAPI</span></h3>
+        <div class="dl">${dlItem('Código', b.code, true)}${dlItem('ISPB', b.ispb)}
+        ${dlItem('Nome', b.name)}${dlItem('Nome completo', b.fullName)}</div></div>`;
+    } else {
+      const lista = await fetchJSON('https://brasilapi.com.br/api/banks/v1');
+      el.innerHTML = `<div class="secao"><h3>🏦 Bancos <span class="fonte">${lista.length}</span></h3>
+        <ul class="lista-itens">${lista.map(b => `<li><strong>${b.code ?? '—'}</strong> — ${b.name || b.fullName} ${b.ispb ? `(ISPB ${b.ispb})` : ''}</li>`).join('')}</ul></div>`;
+    }
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+// ========== Taxas ==========
+async function buscarTaxas() {
+  const el = document.getElementById('resultadoTaxas');
+  mostrarLoading(el);
+  try {
+    const lista = await fetchJSON('https://brasilapi.com.br/api/taxas/v1');
+    el.innerHTML = `<div class="secao"><h3>📈 Taxas de referência <span class="fonte">BrasilAPI</span></h3>
+      <ul class="lista-itens">${lista.map(t => `<li><strong>${t.nome}</strong>: ${t.valor}% <span class="badge badge-info">${t.data ? new Date(t.data).toLocaleDateString('pt-BR') : ''}</span></li>`).join('')}</ul></div>`;
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+// ========== FIPE ==========
+async function buscarFipeMarcas() {
+  const el = document.getElementById('resultadoFipe');
+  const tipo = document.getElementById('fipeTipo').value;
+  mostrarLoading(el);
+  try {
+    const marcas = await fetchJSON(`https://brasilapi.com.br/api/fipe/marcas/v1/${tipo}`);
+    const sel = document.getElementById('fipeMarca');
+    sel.innerHTML = marcas.map(m => `<option value="${m.valor}">${m.nome}</option>`).join('');
+    document.getElementById('fipeMarcasBox').style.display = 'block';
+    el.innerHTML = `<div class="secao"><h3>Marcas (${tipo}) <span class="fonte">${marcas.length}</span></h3>
+      <p class="hint">Selecione a marca acima e clique em “Listar veículos”.</p></div>`;
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+async function buscarFipeVeiculos() {
+  const el = document.getElementById('resultadoFipe');
+  const tipo = document.getElementById('fipeTipo').value;
+  const marca = document.getElementById('fipeMarca').value;
+  if (!marca) { mostrarErro(el, 'Selecione uma marca.'); return; }
+  mostrarLoading(el);
+  try {
+    const veiculos = await fetchJSON(`https://brasilapi.com.br/api/fipe/veiculos/v1/${tipo}/${marca}`);
+    el.innerHTML = `<div class="secao"><h3>Veículos <span class="fonte">${veiculos.length}</span></h3>
+      <ul class="lista-itens">${veiculos.map(v => `<li><strong>${v.modelo}</strong> — ${v.valor || ''} ${v.anoModelo ? `(${v.anoModelo})` : ''}</li>`).join('')}</ul></div>`;
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+// ========== PIX ==========
+async function buscarPIX() {
+  const el = document.getElementById('resultadoPIX');
+  mostrarLoading(el);
+  try {
+    const lista = await fetchJSON('https://brasilapi.com.br/api/pix/v1/participants');
+    el.innerHTML = `<div class="secao"><h3>💠 Participantes PIX <span class="fonte">${lista.length}</span></h3>
+      <ul class="lista-itens">${lista.map(p => `<li><strong>${p.nome || p.name}</strong> — ISPB: ${p.ispb || '—'} ${p.modalidade_participacao ? `(${p.modalidade_participacao})` : ''}</li>`).join('')}</ul></div>`;
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+// ========== Feriados ==========
+async function buscarFeriados() {
+  const el = document.getElementById('resultadoFeriados');
+  const ano = document.getElementById('anoFeriado').value || new Date().getFullYear();
+  mostrarLoading(el);
+  try {
+    const lista = await fetchJSON(`https://brasilapi.com.br/api/feriados/v1/${ano}`);
+    el.innerHTML = `<div class="secao"><h3>📅 Feriados ${ano} <span class="fonte">BrasilAPI</span></h3>
+      <ul class="lista-itens">${lista.map(f => {
+        const data = f.date ? new Date(f.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : f.date;
+        return `<li><strong>${data}</strong> — ${f.name} <span class="badge badge-info">${f.type || 'nacional'}</span></li>`;
+      }).join('')}</ul></div>`;
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+// ========== Corretoras ==========
+async function buscarCorretoras(porCnpj) {
+  const el = document.getElementById('resultadoCorretoras');
+  mostrarLoading(el);
+  try {
+    if (porCnpj) {
+      const cnpj = limparNumeros(document.getElementById('corretoraCnpj').value);
+      if (cnpj.length !== 14) { mostrarErro(el, 'CNPJ inválido.'); return; }
+      const c = await fetchJSON(`https://brasilapi.com.br/api/cvm/corretoras/v1/${cnpj}`);
+      el.innerHTML = `<div class="secao"><h3>📊 ${c.nome_social || c.nome_comercial} <span class="fonte">BrasilAPI / CVM</span></h3>
+        <div class="dl">
+          ${dlItem('CNPJ', formatarCNPJ(c.cnpj), true)}
+          ${dlItem('Nome social', c.nome_social)}
+          ${dlItem('Nome comercial', c.nome_comercial)}
+          ${dlItem('Status', c.status)}
+          ${dlItem('E-mail', c.email)}
+          ${dlItem('Telefone', c.telefone)}
+          ${dlItem('Logradouro', c.logradouro)}
+          ${dlItem('Município', c.municipio)}
+          ${dlItem('UF', c.uf)}
+          ${dlItem('CEP', c.cep)}
+        </div></div>`;
+    } else {
+      const lista = await fetchJSON('https://brasilapi.com.br/api/cvm/corretoras/v1');
+      el.innerHTML = `<div class="secao"><h3>📊 Corretoras CVM <span class="fonte">${lista.length}</span></h3>
+        <ul class="lista-itens">${lista.map(c => `<li><strong>${c.nome_social || c.nome_comercial}</strong> — ${formatarCNPJ(c.cnpj)} <span class="badge badge-info">${c.status || ''}</span></li>`).join('')}</ul></div>`;
+    }
+  } catch (err) { mostrarErro(el, 'Erro: ' + err.message); }
+}
+
+// Enter shortcuts
+['cep','cnpj','ddd','numeroProcesso'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      if (id === 'cep') buscarCEP();
+      else if (id === 'cnpj') buscarCNPJ();
+      else if (id === 'ddd') buscarDDD();
+      else if (id === 'numeroProcesso') buscarProcesso();
+    }
+  });
+});
+</script>
+</body>
+</html>

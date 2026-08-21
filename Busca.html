@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consulta Brasil</title>
+
+<style>
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:#f4f4f4;
+    margin:20px;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    margin-bottom:20px;
+    border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,.15);
+}
+
+h1{
+    text-align:center;
+    color:#0066cc;
+}
+
+input{
+    width:100%;
+    padding:10px;
+    margin:5px 0 15px;
+    border:1px solid #ccc;
+    border-radius:5px;
+    box-sizing:border-box;
+}
+
+button{
+    background:#0066cc;
+    color:white;
+    border:none;
+    padding:10px 20px;
+    cursor:pointer;
+    border-radius:5px;
+}
+
+button:hover{
+    background:#004999;
+}
+
+pre{
+    background:#eee;
+    padding:10px;
+    border-radius:5px;
+    white-space:pre-wrap;
+}
+
+.linha{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+
+@media(max-width:700px){
+.linha{
+grid-template-columns:1fr;
+}
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+
+<h1>Consulta Brasil</h1>
+
+<div class="card">
+
+<h2>Consultar CEP</h2>
+
+<input id="cep" placeholder="Digite o CEP">
+
+<button onclick="buscarCEP()">Consultar</button>
+
+<pre id="resultadoCEP"></pre>
+
+</div>
+
+<div class="card">
+
+<h2>Encontrar CEP pelo Endereço</h2>
+
+<div class="linha">
+
+<input id="uf" placeholder="UF (SP)">
+
+<input id="cidade" placeholder="Cidade">
+
+</div>
+
+<input id="rua" placeholder="Rua">
+
+<button onclick="buscarEndereco()">Pesquisar</button>
+
+<pre id="resultadoEndereco"></pre>
+
+</div>
+
+<div class="card">
+
+<h2>Consultar CNPJ</h2>
+
+<input id="cnpj" placeholder="Digite o CNPJ">
+
+<button onclick="buscarCNPJ()">Consultar</button>
+
+<pre id="resultadoCNPJ"></pre>
+
+</div>
+
+</div>
+
+<script>
+
+async function buscarCEP(){
+
+let cep=document.getElementById("cep").value.replace(/\D/g,'');
+
+let resposta=await fetch("https://viacep.com.br/ws/"+cep+"/json/");
+
+let dados=await resposta.json();
+
+document.getElementById("resultadoCEP").textContent=
+JSON.stringify(dados,null,4);
+
+}
+
+async function buscarEndereco(){
+
+let uf=document.getElementById("uf").value;
+
+let cidade=document.getElementById("cidade").value;
+
+let rua=document.getElementById("rua").value;
+
+cidade=encodeURIComponent(cidade);
+
+rua=encodeURIComponent(rua);
+
+let url="https://viacep.com.br/ws/"+uf+"/"+cidade+"/"+rua+"/json/";
+
+let resposta=await fetch(url);
+
+let dados=await resposta.json();
+
+document.getElementById("resultadoEndereco").textContent=
+JSON.stringify(dados,null,4);
+
+}
+
+async function buscarCNPJ(){
+
+let cnpj=document.getElementById("cnpj").value.replace(/\D/g,'');
+
+let resposta=await fetch("https://brasilapi.com.br/api/cnpj/v1/"+cnpj);
+
+let dados=await resposta.json();
+
+document.getElementById("resultadoCNPJ").textContent=
+JSON.stringify(dados,null,4);
+
+}
+
+</script>
+
+</body>
+</html>

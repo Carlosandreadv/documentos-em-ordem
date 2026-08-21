@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Central de APIs Públicas</title>
+  <style>
+    :root{
+      --bg:#0b1220; --bg2:#0f172a; --panel:#111827; --panel2:#1f2937; --panel3:#263244;
+      --text:#e5e7eb; --muted:#94a3b8; --line:#334155; --accent:#38bdf8; --accent2:#22c55e;
+      --warn:#f59e0b; --danger:#ef4444; --shadow:0 16px 40px rgba(0,0,0,.24); --radius:18px;
+    }
+    html[data-theme="light"]{
+      --bg:#f4f7fb; --bg2:#e8eef7; --panel:#ffffff; --panel2:#eef3f9; --panel3:#dde7f2;
+      --text:#0f172a; --muted:#64748b; --line:#d5deea; --accent:#0284c7; --accent2:#16a34a;
+      --warn:#d97706; --danger:#dc2626; --shadow:0 14px 30px rgba(15,23,42,.08);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter,Segoe UI,Roboto,Arial,sans-serif; color:var(--text);
+      background:
+        radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 12%, transparent), transparent 30%),
+        radial-gradient(circle at top right, color-mix(in srgb, var(--accent2) 10%, transparent), transparent 28%),
+        linear-gradient(180deg,var(--bg),var(--bg2));
+      min-height:100vh;
+    }
+    header{
+      position:sticky; top:0; z-index:20; backdrop-filter:blur(14px);
+      background:color-mix(in srgb, var(--bg) 78%, transparent); border-bottom:1px solid var(--line);
+    }
+    .wrap{max-width:1600px;margin:0 auto;padding:16px}
+    .topbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+    .brand h1{margin:0;font-size:22px}
+    .brand p{margin:5px 0 0;color:var(--muted);font-size:13px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button,.btn{
+      border:1px solid var(--line); background:var(--panel); color:var(--text); padding:10px 12px;
+      border-radius:12px; cursor:pointer; box-shadow:var(--shadow); transition:.15s transform,.15s opacity,.15s background;
+      font-weight:600;
+    }
+    button:hover,.btn:hover{transform:translateY(-1px)}
+    button.primary{background:linear-gradient(135deg,var(--accent),#0ea5e9);color:white;border:none}
+    button.good{background:linear-gradient(135deg,var(--accent2),#22c55e);color:white;border:none}
+    button.warn{background:linear-gradient(135deg,var(--warn),#f97316);color:white;border:none}
+    button.danger{background:linear-gradient(135deg,var(--danger),#f43f5e);color:white;border:none}
+    main{max-width:1600px;margin:0 auto;padding:16px;display:grid;grid-template-columns:340px 1fr;gap:16px}
+    .panel{
+      background:color-mix(in srgb, var(--panel) 96%, transparent);
+      border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;
+    }
+    .sidebar{padding:14px;display:flex;flex-direction:column;gap:12px;min-height:calc(100vh - 120px)}
+    .searchbox,.toolbar input,.toolbar select,textarea,input{
+      width:100%; padding:12px 14px; background:var(--panel2); color:var(--text); border:1px solid var(--line);
+      border-radius:12px; outline:none;
+    }
+    .section-title{
+      display:flex;justify-content:space-between;align-items:center;
+      color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.08em
+    }
+    .badge{padding:3px 8px;border-radius:999px;font-size:11px;background:rgba(56,189,248,.15);color:var(--accent)}
+    .api-list,.history-list,.fav-list{display:flex;flex-direction:column;gap:8px;max-height:250px;overflow:auto}
+    .api-item,.mini-item{
+      padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel2);
+      cursor:pointer;display:flex;justify-content:space-between;gap:8px;align-items:center
+    }
+    .api-item.active{outline:2px solid var(--accent)}
+    .api-item small,.muted{color:var(--muted)}
+    .content{display:flex;flex-direction:column;gap:16px}
+    .toolbar{
+      display:grid;
+      grid-template-columns:1.1fr .7fr .6fr .6fr .55fr .55fr;
+      gap:10px;padding:14px
+    }
+    .toolbar .full{grid-column:1/-1}
+    .results{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+    .card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+    .meta{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;color:var(--muted);font-size:13px}
+    .meta span{background:rgba(148,163,184,.12);padding:6px 10px;border-radius:999px}
+    pre{margin:0;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;color:var(--text)}
+    .log{max-height:260px;overflow:auto;font-size:13px;line-height:1.45}
+    .ok{color:#22c55e}.err{color:#f87171}.info{color:#60a5fa}.warntext{color:#f59e0b}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .pillrow{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{
+      padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel2);
+      cursor:pointer;font-size:12px
+    }
+    .formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .formgrid .full{grid-column:1/-1}
+    label{display:block;font-size:12px;color:var(--muted);margin:2px 0 6px}
+    .api-form{display:grid;gap:10px}
+    .tablewrap{overflow:auto;border:1px solid var(--line);border-radius:14px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left}
+    th{position:sticky;top:0;background:var(--panel3)}
+    .small{font-size:12px}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .result-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+    .chip{padding:6px 10px;border-radius:999px;background:rgba(148,163,184,.12);font-size:12px;color:var(--muted)}
+    @media(max-width:1180px){
+      main{grid-template-columns:1fr}
+      .results{grid-template-columns:1fr}
+      .toolbar{grid-template-columns:1fr 1fr}
+      .sidebar{min-height:auto}
+    }
+    @media(max-width:680px){
+      .toolbar,.grid2,.formgrid,.split{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap topbar">
+    <div class="brand">
+      <h1>Central de APIs Públicas</h1>
+      <p>Catálogo amplo, estável e utilizável — com campos dinâmicos, favoritos, histórico, exportação e logs.</p>
+    </div>
+    <div class="actions">
+      <button id="themeBtn">Tema</button>
+      <button id="copyBtn">Copiar JSON</button>
+      <button id="jsonBtn" class="primary">Download JSON</button>
+      <button id="csvBtn">Download CSV</button>
+      <button id="xlsxBtn">Download Excel</button>
+      <button id="clearBtn" class="danger">Limpar</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <aside class="panel sidebar">
+    <input id="apiSearch" class="searchbox" placeholder="Pesquisar APIs e funcionalidades..." />
+    <div class="section-title"><span>APIs</span><span class="badge" id="apiCount">0</span></div>
+    <div id="apiList" class="api-list"></div>
+
+    <div class="section-title"><span>Favoritos</span><span class="badge" id="favCount">0</span></div>
+    <div id="favList" class="fav-list"></div>
+
+    <div class="section-title"><span>Histórico</span><span class="badge" id="histCount">0</span></div>
+    <div id="historyList" class="history-list"></div>
+  </aside>
+
+  <section class="content">
+    <div class="panel toolbar">
+      <div class="full">
+        <label>API selecionada</label>
+        <select id="apiSelect"></select>
+      </div>
+      <div id="dynamicFields" class="full"></div>
+      <button id="runBtn" class="good">Consultar</button>
+      <button id="multiBtn" class="primary">Multi-API</button>
+      <button id="favBtn">Favoritar</button>
+      <button id="exampleBtn">Exemplos</button>
+      <button id="jsonViewBtn">Ver JSON</button>
+    </div>
+
+    <div class="results">
+      <div class="panel">
+        <div class="card">
+          <div class="meta">
+            <span id="selectedApi">API: nenhuma</span>
+            <span id="responseTime">Tempo: -</span>
+            <span id="statusText">Status: pronto</span>
+          </div>
+          <div id="renderBox"></div>
+          <pre id="output" style="display:none">{}</pre>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="card">
+          <div class="section-title"><span>Logs</span><span class="badge" id="logCount">0</span></div>
+          <div id="logBox" class="log"></div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="section-title"><span>Resumo</span><span class="badge">Campos e retorno</span></div>
+          <div class="grid2">
+            <div>
+              <div class="muted small">Estrutura atual</div>
+              <pre id="summary"></pre>
+            </div>
+            <div>
+              <div class="muted small">Dicas</div>
+              <pre class="small">- A API escolhida muda os campos de entrada.
+- O retorno é renderizado em tabela, cards ou JSON.
+- "Multi-API" tenta provedores do mesmo tema.
+- Favoritos e histórico ficam salvos no navegador.</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const storage = {
+  get:k=>JSON.parse(localStorage.getItem(k)||'[]'),
+  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
+};
+const state = {
+  selected:'cep_viacep',
+  lastData:null,
+  lastText:'',
+  logs:storage.get('api_logs'),
+  history:storage.get('api_history'),
+  favs:storage.get('api_favs'),
+  theme:localStorage.getItem('theme')||'dark'
+};
+
+const APIs = [
+  {id:'cep_viacep', name:'CEP - ViaCEP', group:'CEP', sample:'01001000', fields:[{id:'cep', label:'CEP', type:'text', placeholder:'Somente números', required:true}], run: q => fetch(`https://viacep.com.br/ws/${cleanCEP(q.cep)}/json/`).then(r=>r.json()), responseFields:['cep','logradouro','complemento','bairro','localidade','uf','estado','regiao','ibge','gia','ddd','siafi']},
+  {id:'cep_brasilapi', name:'CEP - BrasilAPI', group:'CEP', sample:'01001000', fields:[{id:'cep', label:'CEP', type:'text', placeholder:'Somente números', required:true}], run: q => fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCEP(q.cep)}`).then(r=>r.json()), responseFields:['cep','state','city','neighborhood','street','service']},
+  {id:'cep_awesome', name:'CEP - AwesomeAPI', group:'CEP', sample:'01001000', fields:[{id:'cep', label:'CEP', type:'text', placeholder:'Somente números', required:true}], run: q => fetch(`https://cep.awesomeapi.com.br/json/${cleanCEP(q.cep)}`).then(r=>r.json()), responseFields:['cep','address','district','city','state','lat','lng','ddd']},
+  {id:'cnpj_brasilapi', name:'CNPJ - BrasilAPI', group:'CNPJ', sample:'19131243000197', fields:[{id:'cnpj', label:'CNPJ', type:'text', placeholder:'Somente números', required:true}], run:q=>fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleanCNPJ(q.cnpj)}`).then(r=>r.json()), responseFields:['cnpj','razao_social','nome_fantasia','descricao_situacao_cadastral','cnae_fiscal_descricao','capital_social','uf','municipio','bairro','logradouro','numero','cep','ddd_telefone_1','qsa']},
+  {id:'ddd', name:'DDD - BrasilAPI', group:'Telefone', sample:'11', fields:[{id:'ddd', label:'DDD', type:'text', placeholder:'Ex.: 11', required:true}], run:q=>fetch(`https://brasilapi.com.br/api/ddd/v1/${encodeURIComponent(q.ddd)}`).then(r=>r.json()), responseFields:['state','cities']},
+  {id:'banks', name:'Bancos - BrasilAPI', group:'Financeiro', sample:'', fields:[], run:()=>fetch('https://brasilapi.com.br/api/banks/v1').then(r=>r.json()), responseFields:['ispb','name','code','fullName']},
+  {id:'holidays', name:'Feriados - BrasilAPI', group:'Calendário', sample:'2026', fields:[{id:'year', label:'Ano', type:'number', placeholder:'Ex.: 2026', required:true}], run:q=>fetch(`https://brasilapi.com.br/api/feriados/v1/${encodeURIComponent(q.year)}`).then(r=>r.json()), responseFields:['date','name','type']},
+  {id:'countries', name:'Países - RestCountries', group:'Geografia', sample:'Brazil', fields:[{id:'country', label:'País', type:'text', placeholder:'Ex.: Brazil', required:true}], run:q=>fetch(`https://restcountries.com/v3.1/name/${encodeURIComponent(q.country)}`).then(r=>r.json()), responseFields:['name','cca2','capital','region','subregion','population','languages','currencies','timezones']},
+  {id:'ibge_states', name:'IBGE - Estados', group:'Geografia', sample:'', fields:[], run:()=>fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados').then(r=>r.json()), responseFields:['id','sigla','nome','regiao']},
+  {id:'ibge_municipios', name:'IBGE - Municípios', group:'Geografia', sample:'', fields:[], run:()=>fetch('https://servicodados.ibge.gov.br/api/v1/localidades/municipios').then(r=>r.json()), responseFields:['id','nome','microrregiao','regiao-imediata']},
+  {id:'ip_geo', name:'Geolocalização por IP - ipapi', group:'Geo', sample:'8.8.8.8', fields:[{id:'ip', label:'IP', type:'text', placeholder:'Ex.: 8.8.8.8', required:true}], run:q=>fetch(`https://ipapi.co/${encodeURIComponent(q.ip)}/json/`).then(r=>r.json()),
