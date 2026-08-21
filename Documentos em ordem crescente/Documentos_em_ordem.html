@@ -267,6 +267,7 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
       <div class="whisper-status">
         <span class="dot idle" id="whisperDot"></span>
         <span id="whisperStatusText">Não carregado</span>
+        <button onclick="unloadWhisper()" style="margin-left:auto;padding:2px 8px;font-size:10px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer" title="Descarregar modelo da memória">🗑️</button>
       </div>
       <div id="whisperProgressWrap" class="whisper-progress" style="display:none"><div class="whisper-progress-bar" id="whisperProgressBar"></div></div>
       <div id="whisperModels">
@@ -445,6 +446,7 @@ $('themeBtn').onclick = () => {
    LOGGING
    ============================================================ */
 let logEntries = [];
+const MAX_LOG_ENTRIES = 500;  // Keep at most 500 entries in DOM
 function log(msg, cls = '') {
   const ts = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
   logEntries.push({ts, msg, cls});
@@ -452,6 +454,12 @@ function log(msg, cls = '') {
   div.className = 'log-entry';
   div.innerHTML = `<span class="ts">${ts}</span><span class="msg ${cls}">${msg}</span>`;
   $('logBox').appendChild(div);
+  // Trim old entries to prevent DOM/memory growth
+  while (logEntries.length > MAX_LOG_ENTRIES) {
+    logEntries.shift();
+    const old = $('logBox').firstChild;
+    if (old) $('logBox').removeChild(old);
+  }
   $('logBox').scrollTop = $('logBox').scrollHeight;
   $('logCount').textContent = logEntries.length;
 }
@@ -601,6 +609,14 @@ function toggleWebGPU(enabled) {
     whisperModel = null;
     log(`WebGPU ${enabled ? 'ativado' : 'desativado'}. Modelo será recarregado.`, 'info');
     setWhisperStatus('idle', useWebGPU ? 'GPU — recarregar modelo' : 'CPU — recarregar modelo');
+  }
+}
+
+function unloadWhisper() {
+  if (whisperModel) {
+    whisperModel = null;
+    setWhisperStatus('idle', 'Não carregado');
+    log('Modelo Whisper descarregado da memória.', 'info');
   }
 }
 
@@ -831,7 +847,12 @@ async function transcribeWithWhisper(f, audioData, duration) {
     }
 
     const text = (result.text || '').trim();
-    const chunks = result.chunks || [];
+    let chunks = result.chunks || [];
+    // Limit chunks for very long files to save memory (2000 chunks ≈ 30 hours)
+    if (chunks.length > 2000) {
+      chunks = chunks.slice(0, 2000);
+      log(`  [Whisper] Limitando chunks a 2000 (de ${result.chunks.length})`, 'dim');
+    }
     log(`  [Whisper] Transcrição: ${text.length} caracteres, ${chunks.length} segmentos`, text.length > 0 ? 'ok' : 'warntext');
 
     // Reset tooltip
@@ -1279,11 +1300,9 @@ async function startProcessing() {
     const pauseMs = files.length > 20 ? 100 : BATCH_PAUSE_MS;
     await sleep(pauseMs);
 
-    // Suggest GC after heavy files (audio/video)
-    if (f.type === 'audio' || f.type === 'video') {
-      f._fileObj = null;  // Release file reference
-      if (f._audioBuffer) { f._audioBuffer = null; }
-    }
+    // Release file reference after processing (ALL types)
+    f._fileObj = null;
+    f._audioBuffer = null;
   }
 
   stopTimer();
@@ -1665,6 +1684,8 @@ async function processImage(f) {
   }
 
   f.content = result.text || `[OCR não encontrou texto em ${f.name}]`;
+  // Free image bitmap and canvases
+  try { imgBitmap.close(); } catch(e) {}
   log(`  OCR finalizado (nível ${precisionLevel}): ${result.confidence.toFixed(0)}% conf, ${result.text.length} chars`, result.text.length > 10 ? 'ok' : 'warntext');
 }
 
@@ -1884,8 +1905,9 @@ async function processVideo(f) {
       log(`  Transcrevendo com Whisper (${WHISPER_MODELS[whisperModelName].label})...`, 'info');
       const whisperResult = await transcribeWithWhisper(f, float32, duration);
 
-      // Free memory
+      // Free video audio buffers
       f._audioBuffer = null;
+      videoArrayBuffer = null;
 
       if (whisperResult && whisperResult.text) {
         transcriptionText = whisperResult.text;
