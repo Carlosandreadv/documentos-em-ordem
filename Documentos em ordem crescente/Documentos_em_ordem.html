@@ -1060,45 +1060,48 @@ async function processImage(f) {
       updateTooltip(`${f.name} — OCR: ${Math.round(m.progress * 100)}%`);
   }};
 
-  // Aplicar rotação EXIF + extra ao bitmap
-  function rotateImage(bitmap, extraDeg) {
-    const c = document.createElement('canvas');
-    const cx = c.getContext('2d');
-    const w = bitmap.width, h = bitmap.height;
+  // Criar canvas redimensionado + grayscale + EXIF aplicado
+  function prepareCanvas(bitmap, extraDeg, maxDim) {
+    maxDim = maxDim || 2000;
     const total = (exifTransform.rotation + extraDeg) % 360;
     const swap = total === 90 || total === 270;
-    c.width = swap ? h : w;
-    c.height = swap ? w : h;
+    const srcW = swap ? bitmap.height : bitmap.width;
+    const srcH = swap ? bitmap.width : bitmap.height;
+
+    // Redimensionar se muito grande
+    let w = srcW, h = srcH;
+    if (w > maxDim || h > maxDim) {
+      const scale = maxDim / Math.max(w, h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const cx = c.getContext('2d');
+
+    // Aplicar rotação EXIF + extra
     cx.save();
-    cx.translate(c.width/2, c.height/2);
+    cx.translate(w/2, h/2);
     cx.rotate((total * Math.PI) / 180);
     if (exifTransform.flipX) cx.scale(-1, 1);
     if (exifTransform.flipY) cx.scale(1, -1);
-    cx.drawImage(bitmap, -w/2, -h/2);
+    cx.drawImage(bitmap, -srcW/2, -srcH/2, srcW, srcH);
     cx.restore();
+
+    // Converter para grayscale (Tesseract funciona melhor com cinza)
+    const imgData = cx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const g = Math.round(0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]);
+      d[i] = d[i+1] = d[i+2] = g;
+    }
+    cx.putImageData(imgData, 0, 0);
     return c;
   }
 
-  // Pré-processamentos leves (só para fallback)
-  function softBinarize(canvas) {
-    const cx = canvas.getContext('2d');
-    const imgData = cx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
-      d[i] = d[i+1] = d[i+2] = g > 128 ? 255 : 0;
-    }
-    cx.putImageData(imgData, 0, 0);
-    return canvas;
-  }
-
-  async function runOCR(source, label) {
-    // source pode ser File/Blob ou Canvas
-    const r = await Tesseract.recognize(source, 'por+eng', {
-      ...logger,
-      // Tesseract v5: deixar ele fazer o pré-processamento interno
-      // OSM: detectar orientação automaticamente
-    });
+  async function runOCR(canvas, label) {
+    const r = await Tesseract.recognize(canvas, 'por+eng', logger);
     const t = r.data.text.trim();
     const c = r.data.confidence;
     if (t.length > 0) log(`  OCR ${label}: ${c.toFixed(0)}% conf, ${t.length} chars`, 'dim');
@@ -1113,60 +1116,59 @@ async function processImage(f) {
 
   function isGood(r) { return r.text.length > 20 && r.confidence > 40; }
 
-  // ========= ESTRATÉGIA: IMAGEM ORIGINAL PRIMEIRO =========
-  // O Tesseract.js v5 tem pré-processamento interno excelente.
-  // Nossa binarização DESTRÓI informação — só usar como último recurso.
+  // ========= ESTRATÉGIA OTIMIZADA =========
+  // Canvas grayscale + redimensionado → Tesseract
+  // NÃO binarizar — Tesseract lida melhor com grayscale
   let result = { text: '', confidence: 0 };
 
-  // === NÍVEL 1: Original direto + Original com EXIF 90° ===
-  // Só 1-2 chamadas ao Tesseract — rápido e eficaz
   if (precisionLevel === 1) {
-    log(`  [Nível 1] Imagem original direta`, 'dim');
-    // Tentar o arquivo original SEM nenhuma transformação
-    result = await runOCR(f._fileObj, 'original');
-
-    // Se pouco texto, tentar rotacionado 90°
+    // Original grayscale
+    log(`  [Nível 1] Original grayscale`, 'dim');
+    result = await runOCR(prepareCanvas(imgBitmap, 0), 'original');
     if (!isGood(result)) {
-      log(`  [Nível 1] Retry: rotacionado 90°`, 'dim');
-      const r2 = await runOCR(rotateImage(imgBitmap, 90), 'rot 90°');
-      result = best(result, r2);
+      log(`  [Nível 1] Retry: 90°`, 'dim');
+      result = best(result, await runOCR(prepareCanvas(imgBitmap, 90), 'rot 90°'));
     }
-    // Último recurso: binarizado
     if (!isGood(result)) {
-      log(`  [Nível 1] Fallback: binarizado`, 'dim');
-      const r3 = await runOCR(softBinarize(rotateImage(imgBitmap, 0)), 'binarizado');
-      result = best(result, r3);
+      log(`  [Nível 1] Retry: 270°`, 'dim');
+      result = best(result, await runOCR(prepareCanvas(imgBitmap, 270), 'rot 270°'));
     }
 
-  // === NÍVEL 2: Original + 3 rotações + binarizado ===
   } else if (precisionLevel === 2) {
-    log(`  [Nível 2] Imagem original × 4 orientações`, 'dim');
-    result = await runOCR(f._fileObj, 'original');
-    for (const a of [90, 180, 270]) {
+    log(`  [Nível 2] Original × 4 orientações`, 'dim');
+    for (const a of [0, 90, 180, 270]) {
+      result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
       if (isGood(result)) break;
-      result = best(result, await runOCR(rotateImage(imgBitmap, a), `rot ${a}°`));
     }
+    // Fallback: binarizado suave
     if (!isGood(result)) {
-      log(`  [Nível 2] Fallback: binarizado × 4`, 'dim');
-      for (const a of [0, 90, 180, 270]) {
-        result = best(result, await runOCR(softBinarize(rotateImage(imgBitmap, a)), `bin ${a}°`));
-        if (isGood(result)) break;
-      }
+      log(`  [Nível 2] Fallback: binarizado`, 'dim');
+      const c = prepareCanvas(imgBitmap, 0);
+      const cx = c.getContext('2d');
+      const id = cx.getImageData(0, 0, c.width, c.height);
+      for (let i = 0; i < id.data.length; i += 4)
+        id.data[i] = id.data[i+1] = id.data[i+2] = id.data[i] > 128 ? 255 : 0;
+      cx.putImageData(id, 0, 0);
+      result = best(result, await runOCR(c, 'binarizado'));
     }
 
-  // === NÍVEL 3: Original + 8 rotações + binarizado + enhanceContrast ===
   } else {
     const angles = [0, 45, 90, 135, 180, 225, 270, 315];
-    log(`  [Nível 3] Imagem original × 8 ângulos`, 'dim');
-    result = await runOCR(f._fileObj, 'original');
+    log(`  [Nível 3] Original × 8 ângulos`, 'dim');
     for (const a of angles) {
+      result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
       if (isGood(result)) break;
-      result = best(result, await runOCR(rotateImage(imgBitmap, a), `rot ${a}°`));
     }
     if (!isGood(result)) {
-      log(`  [Nível 3] Binarizado × 8`, 'dim');
-      for (const a of angles) {
-        result = best(result, await runOCR(softBinarize(rotateImage(imgBitmap, a)), `bin ${a}°`));
+      log(`  [Nível 3] Binarizado × 4`, 'dim');
+      for (const a of [0, 90, 180, 270]) {
+        const c = prepareCanvas(imgBitmap, a);
+        const cx = c.getContext('2d');
+        const id = cx.getImageData(0, 0, c.width, c.height);
+        for (let i = 0; i < id.data.length; i += 4)
+          id.data[i] = id.data[i+1] = id.data[i+2] = id.data[i] > 128 ? 255 : 0;
+        cx.putImageData(id, 0, 0);
+        result = best(result, await runOCR(c, `bin ${a}°`));
         if (isGood(result)) break;
       }
     }
