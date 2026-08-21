@@ -95,6 +95,36 @@ button.retry{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;borde
 .batch-meta .chip.yellow{background:rgba(245,158,11,.15);color:var(--warn)}
 .batch-meta .chip.red{background:rgba(239,68,68,.15);color:var(--danger)}
 
+/* Concurrency meter */
+.concurrency-meter{margin-top:8px}
+.concurrency-meter .meter-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.concurrency-meter .meter-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.concurrency-meter .meter-count{font-size:12px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.concurrency-bar{display:flex;gap:2px;height:8px;border-radius:999px;overflow:hidden;background:var(--panel3)}
+.concurrency-bar .slot{flex:1;border-radius:999px;transition:background .25s, opacity .25s;opacity:.15}
+.concurrency-bar .slot.active{opacity:1}
+.concurrency-bar .slot.imagem{background:#38bdf8}
+.concurrency-bar .slot.audio{background:#f59e0b}
+.concurrency-bar .slot.video{background:#a78bfa}
+.concurrency-bar .slot.texto{background:#22c55e}
+.concurrency-bar .slot.pdf{background:#f87171}
+.concurrency-bar .slot.docx{background:#60a5fa}
+.concurrency-bar .slot.odt{background:#fb923c}
+.concurrency-bar .slot.doc{background:#94a3b8}
+.concurrency-types{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.concurrency-type{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);padding:2px 6px;border-radius:999px;background:rgba(148,163,184,.08)}
+.concurrency-type .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.concurrency-type .dot.imagem{background:#38bdf8}
+.concurrency-type .dot.audio{background:#f59e0b}
+.concurrency-type .dot.video{background:#a78bfa}
+.concurrency-type .dot.texto{background:#22c55e}
+.concurrency-type .dot.pdf{background:#f87171}
+.concurrency-type .dot.docx{background:#60a5fa}
+.concurrency-type .dot.odt{background:#fb923c}
+.concurrency-type .dot.doc{background:#94a3b8}
+.concurrency-type.active{color:var(--text);background:rgba(148,163,184,.15)}
+.concurrency-type .count{font-weight:700;font-variant-numeric:tabular-nums}
+
 /* Server panel */
 .server-panel{display:flex;flex-direction:column;gap:10px}
 .server-status{display:flex;align-items:center;gap:8px;font-size:13px}
@@ -335,6 +365,22 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
       </button>
     </div>
 
+    <!-- Cache -->
+    <div class="section-title"><span>💾 Cache</span><span class="badge" id="cacheBadge">0 · 0 MB</span></div>
+    <div class="card" style="padding:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:12px;color:var(--muted)"><strong id="cacheCount">0</strong> resultados salvos</span>
+        <span style="font-size:11px;color:var(--muted)" id="cacheDetail">0 OCR · 0 Transcrição · 0 MB</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="clearAllCache()" style="padding:5px 10px;font-size:11px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer;flex:1">🗑️ Limpar Cache</button>
+        <button onclick="updateCacheUI()" style="padding:5px 10px;font-size:11px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer" title="Atualizar">🔄</button>
+      </div>
+      <div style="margin-top:6px;font-size:10px;color:var(--muted);line-height:1.4">
+        Resultados de OCR e transcrição são salvos por arquivo. Reprocessar a mesma pasta é instantâneo.
+      </div>
+    </div>
+
     <!-- Progress -->
     <div class="section-title"><span>Progresso</span><span class="badge" id="progressPct">0%</span></div>
     <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
@@ -353,6 +399,16 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
         <span class="chip accent" id="batchPending">0 na fila</span>
         <span class="chip green" id="batchDoneChip">0 prontos</span>
         <span class="chip red" id="batchErrChip">0 erros</span>
+        <span class="chip" id="batchHWChip" title="Hardware detectado"></span>
+      </div>
+      <!-- Concurrency meter -->
+      <div class="concurrency-meter">
+        <div class="meter-header">
+          <span class="meter-label">⚡ Concorrência</span>
+          <span class="meter-count" id="concActiveCount">0 / 0</span>
+        </div>
+        <div class="concurrency-bar" id="concBar"></div>
+        <div class="concurrency-types" id="concTypes"></div>
       </div>
     </div>
 
@@ -443,6 +499,215 @@ $('themeBtn').onclick = () => {
 };
 
 /* ============================================================
+   WEB WORKER — Image preprocessing + Audio resampling
+   ============================================================ */
+// All CPU-intensive pixel work (grayscale, binarize, resize, resample)
+// runs off the main thread. Tesseract & Whisper manage their own workers.
+const _workerCode = `
+/* --- EXIF helpers --- */
+function parseTiffForOrientation(tiffData, tiffOffset) {
+  const view = new DataView(tiffData);
+  if (tiffOffset + 8 > view.byteLength) return 1;
+  const byteOrder = view.getUint16(tiffOffset, false);
+  const le = byteOrder === 0x4949;
+  const ifdOffset = view.getUint32(tiffOffset + 4, le);
+  const absIfd = tiffOffset + ifdOffset;
+  if (absIfd + 2 > view.byteLength) return 1;
+  const numEntries = view.getUint16(absIfd, le);
+  for (let i = 0; i < numEntries; i++) {
+    const entryOffset = absIfd + 2 + (i * 12);
+    if (entryOffset + 12 > view.byteLength) break;
+    if (view.getUint16(entryOffset, le) === 0x0112) {
+      return view.getUint16(entryOffset + 8, le);
+    }
+  }
+  return 1;
+}
+
+async function getExifOrientation(buf) {
+  const view = new DataView(buf);
+  // JPEG
+  if (view.getUint16(0, false) === 0xFFD8) {
+    let offset = 2;
+    while (offset < view.byteLength - 2) {
+      const marker = view.getUint16(offset, false);
+      if (marker === 0xFFE1) {
+        const exifStart = offset + 4;
+        if (view.getUint32(exifStart, false) === 0x45786966 && view.getUint16(exifStart + 4, false) === 0x0000) {
+          return parseTiffForOrientation(buf, exifStart + 6);
+        }
+      }
+      if ((marker & 0xFF00) !== 0xFF00) break;
+      offset += 2 + view.getUint16(offset + 2, false);
+    }
+    return 1;
+  }
+  // PNG
+  if (view.getUint32(0, false) === 0x89504E47 && view.getUint32(4, false) === 0x0D0A1A0A) {
+    let offset = 8;
+    while (offset + 8 <= view.byteLength) {
+      const chunkLen = view.getUint32(offset, false);
+      const chunkType = view.getUint32(offset + 4, false);
+      if (chunkType === 0x65584966) return parseTiffForOrientation(buf, offset + 12);
+      if (chunkType === 0x49454E44) break;
+      offset += 12 + chunkLen;
+    }
+    return 1;
+  }
+  return 1;
+}
+
+function exifOrientationToTransform(o) {
+  switch(o){
+    case 2:return{rotation:0,flipX:true,flipY:false};
+    case 3:return{rotation:180,flipX:false,flipY:false};
+    case 4:return{rotation:0,flipX:false,flipY:true};
+    case 5:return{rotation:90,flipX:true,flipY:false};
+    case 6:return{rotation:90,flipX:false,flipY:false};
+    case 7:return{rotation:270,flipX:true,flipY:false};
+    case 8:return{rotation:270,flipX:false,flipY:false};
+    default:return{rotation:0,flipX:false,flipY:false};
+  }
+}
+
+/* --- Image preprocessing --- */
+async function preprocessImage(fileData, extraDeg, binarize, maxDim) {
+  maxDim = maxDim || 2000;
+  const exifBuf = fileData.slice(0, 131072);
+  const orientation = await getExifOrientation(exifBuf);
+  const transform = exifOrientationToTransform(orientation);
+  const bitmap = await createImageBitmap(new Blob([fileData]));
+  const total = (transform.rotation + extraDeg) % 360;
+  const swap = total === 90 || total === 270;
+  const srcW = swap ? bitmap.height : bitmap.width;
+  const srcH = swap ? bitmap.width : bitmap.height;
+  let w = srcW, h = srcH;
+  if (w > maxDim || h > maxDim) {
+    const scale = maxDim / Math.max(w, h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+  const c = new OffscreenCanvas(w, h);
+  const cx = c.getContext('2d');
+  cx.save();
+  cx.translate(w/2, h/2);
+  cx.rotate((total * Math.PI) / 180);
+  if (transform.flipX) cx.scale(-1, 1);
+  if (transform.flipY) cx.scale(1, -1);
+  cx.drawImage(bitmap, -srcW/2, -srcH/2, srcW, srcH);
+  cx.restore();
+  bitmap.close();
+  const imgData = cx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+  if (binarize) {
+    for (let i = 0; i < d.length; i += 4) {
+      const g = Math.round(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);
+      const v = g > 128 ? 255 : 0;
+      d[i]=d[i+1]=d[i+2]=v;
+    }
+  } else {
+    for (let i = 0; i < d.length; i += 4) {
+      const g = Math.round(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);
+      d[i]=d[i+1]=d[i+2]=g;
+    }
+  }
+  cx.putImageData(imgData, 0, 0);
+  return c.transferToImageBitmap();
+}
+
+/* --- Audio resampling (mono Float32 → 16kHz) --- */
+function resampleAudio(channelData, numChannels, originalRate, targetRate) {
+  targetRate = targetRate || 16000;
+  const length = channelData.length;
+  // Mix to mono
+  const mixed = new Float32Array(length);
+  for (let i = 0; i < length; i++) mixed[i] = channelData[i] / numChannels;
+  if (originalRate === targetRate) return mixed;
+  const newLength = Math.round(length * targetRate / originalRate);
+  const result = new Float32Array(newLength);
+  const ratio = length / newLength;
+  for (let i = 0; i < newLength; i++) {
+    const srcIdx = i * ratio;
+    const idx0 = Math.floor(srcIdx);
+    const idx1 = Math.min(idx0 + 1, length - 1);
+    const frac = srcIdx - idx0;
+    result[i] = mixed[idx0] * (1 - frac) + mixed[idx1] * frac;
+  }
+  return result;
+}
+
+/* --- Message handler --- */
+self.onmessage = async function(e) {
+  const msg = e.data;
+  if (msg.type === 'preprocess_image') {
+    try {
+      const result = await preprocessImage(msg.fileData, msg.extraDeg, msg.binarize, msg.maxDim);
+      self.postMessage({ type: 'image_result', id: msg.id, bitmap: result }, [result]);
+    } catch(err) {
+      self.postMessage({ type: 'image_error', id: msg.id, error: err.message });
+    }
+  } else if (msg.type === 'resample_audio') {
+    try {
+      const data = new Float32Array(msg.channelData);
+      const result = resampleAudio(data, msg.numChannels, msg.originalRate, msg.targetRate);
+      self.postMessage({ type: 'audio_result', id: msg.id, float32: result }, [result.buffer]);
+    } catch(err) {
+      self.postMessage({ type: 'audio_error', id: msg.id, error: err.message });
+    }
+  }
+};
+`;
+
+// Create inline worker from Blob URL (avoids CORS / file:// issues)
+const _workerBlob = new Blob([_workerCode], { type: 'application/javascript' });
+const _workerURL = URL.createObjectURL(_workerBlob);
+const heavyWorker = new Worker(_workerURL);
+URL.revokeObjectURL(_workerURL);
+
+// Worker request tracking
+let _workerReqId = 0;
+const _workerCallbacks = new Map();
+
+heavyWorker.onmessage = function(e) {
+  const msg = e.data;
+  const cb = _workerCallbacks.get(msg.id);
+  if (!cb) return;
+  _workerCallbacks.delete(msg.id);
+  if (msg.type === 'image_result') cb.resolve(msg.bitmap);
+  else if (msg.type === 'image_error') cb.reject(new Error(msg.error));
+  else if (msg.type === 'audio_result') cb.resolve(msg.float32);
+  else if (msg.type === 'audio_error') cb.reject(new Error(msg.error));
+};
+
+// Send image to worker for preprocessing, returns ImageBitmap
+function workerPreprocessImage(fileData, extraDeg, binarize, maxDim) {
+  return new Promise((resolve, reject) => {
+    const id = ++_workerReqId;
+    _workerCallbacks.set(id, { resolve, reject });
+    heavyWorker.postMessage({
+      type: 'preprocess_image',
+      id, fileData, extraDeg, binarize: !!binarize, maxDim
+    });
+  });
+}
+
+// Send audio Float32 data to worker for resampling to 16kHz
+function workerResampleAudio(channelData, numChannels, originalRate) {
+  return new Promise((resolve, reject) => {
+    const id = ++_workerReqId;
+    _workerCallbacks.set(id, { resolve, reject });
+    heavyWorker.postMessage({
+      type: 'resample_audio',
+      id,
+      channelData: channelData,
+      numChannels: numChannels,
+      originalRate: originalRate,
+      targetRate: 16000
+    });
+  });
+}
+
+/* ============================================================
    LOGGING
    ============================================================ */
 let logEntries = [];
@@ -462,6 +727,128 @@ function log(msg, cls = '') {
   }
   $('logBox').scrollTop = $('logBox').scrollHeight;
   $('logCount').textContent = logEntries.length;
+}
+
+/* ============================================================
+   FILE CACHE (OCR + Transcription)
+   ============================================================ */
+const CACHE_PREFIX = 'docem_cache_';
+const CACHE_INDEX_KEY = 'docem_cache_index';
+const CACHE_MAX_ENTRIES = 200;      // max cached results
+const CACHE_MAX_BYTES = 4 * 1024 * 1024; // ~4 MB localStorage budget for cache
+const CACHE_VERSION = 3;            // bump to invalidate old entries
+
+// Quick cache key: filename+size+lastModified
+// For images, precision level is appended so changing precision triggers reprocessing
+function quickCacheKey(f, extra) {
+  let key = `${f.name}__${f.size}__${f.lastModified}`;
+  if (extra) key += `__${extra}`;
+  return key;
+}
+
+// Read cache index from localStorage
+function getCacheIndex() {
+  try { return JSON.parse(localStorage.getItem(CACHE_INDEX_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function saveCacheIndex(idx) {
+  try { localStorage.setItem(CACHE_INDEX_KEY, JSON.stringify(idx)); } catch(e) {}
+}
+
+// Get a cached result by file info
+function getCachedResult(f, extra) {
+  const key = quickCacheKey(f, extra);
+  try {
+    const entry = localStorage.getItem(CACHE_PREFIX + key);
+    if (!entry) return null;
+    const parsed = JSON.parse(entry);
+    if (parsed.v !== CACHE_VERSION) return null;
+    return parsed;
+  } catch(e) { return null; }
+}
+
+// Store a result in cache
+function setCachedResult(f, type, content, extra, cacheKeyExtra) {
+  const key = quickCacheKey(f, cacheKeyExtra);
+  const entry = {
+    v: CACHE_VERSION,
+    type: type,          // 'ocr', 'whisper', 'whisper_chunks'
+    content: content,
+    extra: extra || null, // e.g. chunks array for SRT
+    ts: Date.now(),
+    name: f.name,
+    size: f.size
+  };
+  try {
+    const serialized = JSON.stringify(entry);
+    // Size check: skip if single entry is > 1MB
+    if (serialized.length > 1024 * 1024) return;
+    localStorage.setItem(CACHE_PREFIX + key, serialized);
+    // Update index
+    let idx = getCacheIndex();
+    // Remove old entry for same key if exists
+    idx = idx.filter(e => e.k !== key);
+    idx.push({ k: key, s: serialized.length, ts: Date.now(), type: type });
+    // Enforce max entries
+    while (idx.length > CACHE_MAX_ENTRIES) {
+      const oldest = idx.shift();
+      try { localStorage.removeItem(CACHE_PREFIX + oldest.k); } catch(e) {}
+    }
+    // Enforce total size
+    let total = idx.reduce((acc, e) => acc + e.s, 0);
+    while (total > CACHE_MAX_BYTES && idx.length > 1) {
+      const oldest = idx.shift();
+      total -= oldest.s;
+      try { localStorage.removeItem(CACHE_PREFIX + oldest.k); } catch(e) {}
+    }
+    saveCacheIndex(idx);
+  } catch(e) {
+    // localStorage full — clear oldest half
+    clearOldestCache(0.5);
+  }
+}
+
+function clearOldestCache(ratio) {
+  let idx = getCacheIndex();
+  idx.sort((a, b) => a.ts - b.ts);
+  const removeCount = Math.ceil(idx.length * (ratio || 0.5));
+  for (let i = 0; i < removeCount; i++) {
+    try { localStorage.removeItem(CACHE_PREFIX + idx[i].k); } catch(e) {}
+  }
+  idx = idx.slice(removeCount);
+  saveCacheIndex(idx);
+}
+
+function getCacheStats() {
+  const idx = getCacheIndex();
+  const totalBytes = idx.reduce((acc, e) => acc + e.s, 0);
+  let ocr = 0, whisper = 0;
+  for (const e of idx) {
+    if (e.type === 'ocr') ocr++;
+    else if (e.type === 'whisper' || e.type === 'whisper_chunks') whisper++;
+  }
+  return { total: idx.length, ocr, whisper, bytes: totalBytes };
+}
+
+function clearAllCache() {
+  const idx = getCacheIndex();
+  for (const e of idx) {
+    try { localStorage.removeItem(CACHE_PREFIX + e.k); } catch(err) {}
+  }
+  saveCacheIndex([]);
+  updateCacheUI();
+  log('Cache de processamento limpo.', 'info');
+}
+
+function updateCacheUI() {
+  const stats = getCacheStats();
+  const mb = (stats.bytes / 1024 / 1024).toFixed(2);
+  const badge = $('cacheBadge');
+  if (badge) badge.textContent = `${stats.total} · ${mb} MB`;
+  const countEl = $('cacheCount');
+  if (countEl) countEl.textContent = stats.total;
+  const detailEl = $('cacheDetail');
+  if (detailEl) detailEl.textContent = `${stats.ocr} OCR · ${stats.whisper} Transcrição · ${mb} MB`;
 }
 
 /* ============================================================
@@ -719,40 +1106,6 @@ async function getWhisperPipeline() {
   }
 }
 
-// Convert AudioBuffer to Float32Array at 16kHz (Whisper input format)
-function audioBufferToFloat32(audioBuffer) {
-  // Mix all channels to mono
-  const numChannels = audioBuffer.numberOfChannels;
-  const length = audioBuffer.length;
-  const mixed = new Float32Array(length);
-
-  for (let ch = 0; ch < numChannels; ch++) {
-    const data = audioBuffer.getChannelData(ch);
-    for (let i = 0; i < length; i++) {
-      mixed[i] += data[i] / numChannels;
-    }
-  }
-
-  // Resample to 16kHz if needed
-  const originalRate = audioBuffer.sampleRate;
-  if (originalRate === 16000) return mixed;
-
-  const targetRate = 16000;
-  const newLength = Math.round(length * targetRate / originalRate);
-  const result = new Float32Array(newLength);
-  const ratio = length / newLength;
-
-  for (let i = 0; i < newLength; i++) {
-    const srcIdx = i * ratio;
-    const idx0 = Math.floor(srcIdx);
-    const idx1 = Math.min(idx0 + 1, length - 1);
-    const frac = srcIdx - idx0;
-    result[i] = mixed[idx0] * (1 - frac) + mixed[idx1] * frac;
-  }
-
-  return result;
-}
-
 // Process audio/video with Whisper
 async function transcribeWithWhisper(f, audioData, duration) {
   const pipe = await getWhisperPipeline();
@@ -763,15 +1116,13 @@ async function transcribeWithWhisper(f, audioData, duration) {
   const durStr = min > 0 ? `${min}min ${sec}s` : `${sec}s`;
   log(`  [Whisper] Transcrevendo ${durStr} de áudio...`, 'info');
 
-  // Update file item tooltip with progress
+  // Update file item tooltip with progress (optimized: querySelector by index)
   const updateProgress = (pct) => {
     const idx = files.indexOf(f);
     if (idx < 0) return;
-    const filtered = activeFilter === 'all' ? files : files.filter(ft => ft.type === activeFilter);
-    const fi = filtered.indexOf(f);
-    const items = document.querySelectorAll('.file-item');
-    if (fi >= 0 && items[fi]) {
-      const meta = items[fi].querySelector('.meta');
+    const el = $('fileList').querySelector(`[data-file-idx="${idx}"]`);
+    if (el) {
+      const meta = el.querySelector('.meta');
       if (meta) meta.textContent = `⚙️ Whisper ${pct}%`;
     }
   };
@@ -855,14 +1206,12 @@ async function transcribeWithWhisper(f, audioData, duration) {
     }
     log(`  [Whisper] Transcrição: ${text.length} caracteres, ${chunks.length} segmentos`, text.length > 0 ? 'ok' : 'warntext');
 
-    // Reset tooltip
+    // Reset tooltip (optimized)
     const idx = files.indexOf(f);
     if (idx >= 0) {
-      const filtered = activeFilter === 'all' ? files : files.filter(ft => ft.type === activeFilter);
-      const fi = filtered.indexOf(f);
-      const items = document.querySelectorAll('.file-item');
-      if (fi >= 0 && items[fi]) {
-        const meta = items[fi].querySelector('.meta');
+      const el = $('fileList').querySelector(`[data-file-idx="${idx}"]`);
+      if (el) {
+        const meta = el.querySelector('.meta');
         if (meta) {
           const dateStr = new Date(f.lastModified).toLocaleDateString('pt-BR');
           const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
@@ -907,6 +1256,14 @@ function waitForResume() {
 function showBatchProgress() {
   $('batchCard').style.display = '';
   $('batchFileTotal').textContent = files.length;
+  // Show hardware info
+  const hw = $('batchHWChip');
+  if (hw) {
+    const mem = hardware.ramGB;
+    hw.textContent = `${hardware.tierLabel} ${hardware.cores} cores · ${mem}GB`;
+    hw.title = `Tier: ${hardware.tier} | Cores: ${hardware.cores} | RAM: ~${mem}GB\nLimites: imagem=${BATCH_LIMITS.imagem}, audio=${BATCH_LIMITS.audio}, texto=${BATCH_LIMITS.texto}, total=${BATCH_MAX_TOTAL}`;
+  }
+  initConcurrencyBar();
 }
 function hideBatchProgress() {
   $('batchCard').style.display = 'none';
@@ -948,19 +1305,98 @@ function formatMs(ms) {
   return h > 0 ? `${h}:${String(mm).padStart(2,'0')}:${String(s).padStart(2,'0')}`
                : `${String(mm).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
+/* --- Concurrency meter --- */
+const CONC_TYPES = ['texto', 'pdf', 'docx', 'odt', 'doc', 'imagem', 'audio', 'video'];
+function initConcurrencyBar() {
+  const bar = $('concBar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  for (let i = 0; i < BATCH_MAX_TOTAL; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    slot.dataset.idx = i;
+    bar.appendChild(slot);
+  }
+  updateConcurrencyMeter();
+}
+
+function updateConcurrencyMeter() {
+  const bar = $('concBar');
+  const countEl = $('concActiveCount');
+  const typesEl = $('concTypes');
+  if (!bar || !countEl || !typesEl) return;
+
+  // Count active tasks per type
+  const activeByType = {};
+  for (const f of files) {
+    if (f.status === 'processing') {
+      activeByType[f.type] = (activeByType[f.type] || 0) + 1;
+    }
+  }
+  const totalActive = Object.values(activeByType).reduce((a, b) => a + b, 0);
+
+  // Update count label
+  countEl.textContent = `${totalActive} / ${BATCH_MAX_TOTAL}`;
+  countEl.style.color = totalActive > 0 ? 'var(--accent)' : 'var(--muted)';
+
+  // Fill bar slots — assign types in priority order
+  const slots = bar.querySelectorAll('.slot');
+  let slotIdx = 0;
+  for (const type of CONC_TYPES) {
+    const count = activeByType[type] || 0;
+    for (let i = 0; i < count && slotIdx < slots.length; i++) {
+      const slot = slots[slotIdx];
+      slot.className = `slot active ${type}`;
+      slot.title = type;
+      slotIdx++;
+    }
+  }
+  // Clear remaining slots
+  for (; slotIdx < slots.length; slotIdx++) {
+    slots[slotIdx].className = 'slot';
+    slots[slotIdx].title = '';
+  }
+
+  // Update per-type breakdown
+  typesEl.innerHTML = '';
+  for (const type of CONC_TYPES) {
+    const active = activeByType[type] || 0;
+    const limit = BATCH_LIMITS[type] || 0;
+    if (limit === 0) continue;
+    const div = document.createElement('div');
+    div.className = `concurrency-type${active > 0 ? ' active' : ''}`;
+    div.innerHTML = `<span class="dot ${type}"></span>${type} <span class="count">${active}/${limit}</span>`;
+    typesEl.appendChild(div);
+  }
+}
+
 function updateBatchProgress(idx) {
-  currentFileIndex = idx;
-  const pending = files.filter(f => f.status === 'pending').length;
-  const done = files.filter(f => f.status === 'done').length;
-  const errs = files.filter(f => f.status === 'error').length;
-  $('batchFileIdx').textContent = idx + 1;
+  let pending = 0, done = 0, errs = 0, processing = 0;
+  for (let i = 0; i < files.length; i++) {
+    const s = files[i].status;
+    if (s === 'pending') pending++;
+    else if (s === 'done') done++;
+    else if (s === 'error') errs++;
+    else if (s === 'processing') processing++;
+  }
+  const processed = done + errs;
+  $('batchFileIdx').textContent = processed;
+  $('batchFileTotal').textContent = files.length;
   $('batchPending').textContent = pending + ' na fila';
   $('batchDoneChip').textContent = done + ' prontos';
   $('batchErrChip').textContent = errs + ' erros';
   $('batchPrecLabel').textContent = getPrecLabel();
-  if (files[idx]) {
-    $('batchCurrentName').textContent = files[idx].name;
+  // Show active files info for concurrent processing
+  const activeNames = files.filter(f => f.status === 'processing').map(f => f.name);
+  if (activeNames.length > 1) {
+    $('batchCurrentName').textContent = `${activeNames.length} arquivos em paralelo`;
+  } else if (activeNames.length === 1) {
+    $('batchCurrentName').textContent = activeNames[0];
+  } else if (pending > 0) {
+    $('batchCurrentName').textContent = 'Aguardando...';
   }
+  // Update concurrency meter
+  updateConcurrencyMeter();
 }
 
 /* ============================================================
@@ -1067,6 +1503,7 @@ function renderFileList() {
     const realIdx = files.indexOf(f);
     const div = document.createElement('div');
     div.className = `file-item status-${f.status}`;
+    div.dataset.fileIdx = realIdx;
     const dateStr = new Date(f.lastModified).toLocaleDateString('pt-BR');
     const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
                     f.size > 1024 ? (f.size/1024).toFixed(0)+' KB' : f.size+' B';
@@ -1098,6 +1535,51 @@ function renderFileList() {
   });
 }
 
+// Incremental update: only change the specific file item in the DOM
+function updateFileListItem(f) {
+  const realIdx = files.indexOf(f);
+  if (realIdx < 0) return;
+  // Find existing DOM element by data attribute — avoid scanning all items
+  const el = $('fileList').querySelector(`[data-file-idx="${realIdx}"]`);
+  if (!el) return; // not visible (filtered out)
+
+  el.className = `file-item status-${f.status}`;
+  const iconEl = el.querySelector('.status-icon');
+  if (iconEl) {
+    let statusIcon = '⏳';
+    if (f.status === 'processing') statusIcon = '⚙️';
+    if (f.status === 'done') statusIcon = '✅';
+    if (f.status === 'error') statusIcon = '❌';
+    iconEl.textContent = statusIcon;
+  }
+  el.style.cursor = f.status === 'done' ? 'pointer' : 'default';
+  if (f.status === 'done') {
+    el.onclick = () => showPreview(realIdx);
+  }
+  // Update SRT button
+  const nameEl = el.querySelector('.name');
+  const hasSrt = f.status === 'done' && f.chunks && f.chunks.length > 0;
+  const existingSrtBtn = el.querySelector('button[title*="srt"]');
+  if (hasSrt && !existingSrtBtn && nameEl) {
+    const srtBtn = document.createElement('button');
+    srtBtn.style.cssText = 'padding:2px 6px;font-size:10px;border-radius:6px;border:1px solid var(--line);background:var(--panel3);color:var(--accent);cursor:pointer;flex-shrink:0';
+    srtBtn.title = 'Baixar legenda .srt';
+    srtBtn.textContent = '📝 .srt';
+    srtBtn.onclick = (e) => { e.stopPropagation(); exportSingleSRT(realIdx); };
+    nameEl.parentNode.insertBefore(srtBtn, nameEl.nextSibling);
+  }
+  // Update meta
+  if (f.status === 'done') {
+    const metaEl = el.querySelector('.meta');
+    if (metaEl) {
+      const dateStr = new Date(f.lastModified).toLocaleDateString('pt-BR');
+      const sizeStr = f.size > 1048576 ? (f.size/1048576).toFixed(1)+' MB' :
+                      f.size > 1024 ? (f.size/1024).toFixed(0)+' KB' : f.size+' B';
+      metaEl.textContent = `${dateStr} · ${sizeStr}`;
+    }
+  }
+}
+
 function renderFilterPills() {
   const container = $('filterPills');
   container.innerHTML = '';
@@ -1124,9 +1606,14 @@ function renderFilterPills() {
 
 function updateStats() {
   const total = files.length;
-  const done = files.filter(f => f.status === 'done').length;
-  const processing = files.filter(f => f.status === 'processing').length;
-  const errors = files.filter(f => f.status === 'error').length;
+  let done = 0, processing = 0, errors = 0, hasSrt = false;
+  // Single pass instead of multiple .filter() calls
+  for (let i = 0; i < total; i++) {
+    const s = files[i].status;
+    if (s === 'done') { done++; if (!hasSrt && files[i].chunks && files[i].chunks.length > 0) hasSrt = true; }
+    else if (s === 'processing') processing++;
+    else if (s === 'error') errors++;
+  }
   $('statTotal').textContent = total;
   $('statDone').textContent = done;
   $('statProgress').textContent = processing;
@@ -1139,8 +1626,6 @@ function updateStats() {
   if (done > 0) {
     $('exportBtn').disabled = false;
   }
-  // Enable SRT button if any file has transcription chunks
-  const hasSrt = files.some(f => f.status === 'done' && f.chunks && f.chunks.length > 0);
   $('srtBtn').disabled = !hasSrt;
 }
 
@@ -1210,11 +1695,17 @@ function togglePause() {
 function cancelProcessing() {
   if (!isProcessing) return;
   isCancelled = true;
-  // Unpause so the loop can exit
+  // Clear task queue so no new tasks start
+  taskQueue = [];
+  if (batchDrainInterval) { clearInterval(batchDrainInterval); batchDrainInterval = null; }
+  // Unpause so active tasks can finish and checkBatchComplete fires
   if (isPaused) {
     isPaused = false;
     if (pauseResolve) { pauseResolve(); pauseResolve = null; }
   }
+  // If no active tasks, finish immediately
+  const totalActive = Object.values(activeTasks).reduce((a, b) => a + b, 0);
+  if (totalActive === 0) finishProcessing();
   log('✕ Cancelamento solicitado...', 'err');
 }
 
@@ -1238,74 +1729,160 @@ function retryErrors() {
   startProcessing();
 }
 
-async function startProcessing() {
-  if (isProcessing || files.length === 0) return;
-  isProcessing = true;
-  isCancelled = false;
-  isPaused = false;
-  filesProcessedSoFar = 0;
-  totalTimeProcessing = 0;
-  currentFileIndex = 0;
+/* ============================================================
+   HARDWARE DETECTION & DYNAMIC CONCURRENCY
+   ============================================================ */
+function detectHardware() {
+  const cores = navigator.hardwareConcurrency || 4;
+  // deviceMemory is Chrome-only (GB), fallback to heuristic
+  const ramGB = navigator.deviceMemory || (cores <= 2 ? 4 : cores <= 4 ? 8 : 16);
+  // Performance memory API (Chrome only)
+  let usedJSHeap = 0;
+  if (performance.memory) usedJSHeap = performance.memory.usedJSHeapSize;
 
-  setProcessingUI(true);
-  showBatchProgress();
-  startTimer();
-  updateBatchProgress(0);
+  // Tier classification
+  // low:  1-2 cores  OR  ≤4GB RAM
+  // mid:  3-4 cores  AND 5-8GB RAM
+  // high: 5+ cores   AND ≥8GB RAM
+  let tier = 'mid';
+  if (cores <= 2 || ramGB <= 4) tier = 'low';
+  else if (cores >= 5 && ramGB >= 8) tier = 'high';
 
-  log('Iniciando processamento de arquivos...', 'info');
-
-  for (let i = 0; i < files.length; i++) {
-    // Check cancel
-    if (isCancelled) {
-      log('Processamento cancelado pelo usuário.', 'warntext');
-      break;
+  // Calculate limits per tier
+  const limits = {
+    low: {
+      imagem: 1, audio: 1, video: 1,
+      texto: 3, pdf: 1, docx: 2, doc: 1, odt: 1,
+      maxTotal: 3
+    },
+    mid: {
+      imagem: Math.min(3, cores - 1), audio: 1, video: 1,
+      texto: Math.min(5, cores), pdf: Math.min(3, cores - 1),
+      docx: Math.min(4, cores), doc: 1, odt: Math.min(2, cores - 1),
+      maxTotal: Math.min(6, cores)
+    },
+    high: {
+      imagem: Math.min(4, cores - 1), audio: 1, video: 1,
+      texto: Math.min(8, cores), pdf: Math.min(4, cores - 1),
+      docx: Math.min(6, cores), doc: 2, odt: Math.min(3, cores - 1),
+      maxTotal: Math.min(8, cores)
     }
+  };
 
-    // Check pause
-    await waitForResume();
-    if (isCancelled) {  // might have been cancelled while paused
-      log('Processamento cancelado pelo usuário.', 'warntext');
-      break;
-    }
+  const config = limits[tier];
+  return {
+    cores, ramGB, tier, usedJSHeap,
+    limits: config,
+    tierLabel: tier === 'low' ? '🐢 Baixo' : tier === 'mid' ? '⚖️ Médio' : '🚀 Alto'
+  };
+}
 
-    const f = files[i];
-    if (f.status === 'done' || f.status === 'error') {
-      filesProcessedSoFar++;
-      continue;
-    }
+// Detect and apply
+const hardware = detectHardware();
+let BATCH_LIMITS = {
+  imagem: hardware.limits.imagem,
+  audio:  hardware.limits.audio,
+  video:  hardware.limits.video,
+  texto:  hardware.limits.texto,
+  pdf:    hardware.limits.pdf,
+  docx:   hardware.limits.docx,
+  doc:    hardware.limits.doc,
+  odt:    hardware.limits.odt,
+};
+let BATCH_MAX_TOTAL = hardware.limits.maxTotal;
 
-    f.status = 'processing';
-    renderFileList();
-    updateStats();
-    updateBatchProgress(i);
+/* ============================================================
+   CONCURRENT BATCH PROCESSOR
+   ============================================================ */
 
-    log(`Processando (${i+1}/${files.length}): <strong>${f.name}</strong>`, 'info');
+let activeTasks = {};
+let taskQueue = [];
+let batchDrainInterval = null;
 
-    try {
-      await processFile(f);
-      f.status = 'done';
-      log(`✔ Concluído: ${f.name}`, 'ok');
-    } catch (e) {
-      f.status = 'error';
-      f.error = e.message || String(e);
-      log(`✘ Erro em ${f.name}: ${f.error}`, 'err');
-    }
+function canRunTask(type) {
+  if (!isProcessing || isCancelled) return false;
+  const limit = BATCH_LIMITS[type] || 2;
+  const active = activeTasks[type] || 0;
+  const totalActive = Object.values(activeTasks).reduce((a, b) => a + b, 0);
+  return active < limit && totalActive < BATCH_MAX_TOTAL;
+}
 
-    filesProcessedSoFar++;
-    renderFileList();
-    updateStats();
-    updateBatchProgress(i + 1);
+function dequeueTask() {
+  // Prioritize: lightweight tasks first (they finish fast, free slots)
+  const order = ['texto', 'pdf', 'docx', 'odt', 'doc', 'imagem', 'audio', 'video'];
+  for (const type of order) {
+    const idx = taskQueue.findIndex(t => t.type === type && canRunTask(type));
+    if (idx >= 0) return taskQueue.splice(idx, 1)[0];
+  }
+  return null;
+}
 
-    // Yield to browser between files — longer pause for large batches
-    const pauseMs = files.length > 20 ? 100 : BATCH_PAUSE_MS;
-    await sleep(pauseMs);
+async function runTask(task) {
+  const f = task.file;
+  activeTasks[f.type] = (activeTasks[f.type] || 0) + 1;
+  filesProcessedSoFar = files.filter(f => f.status === 'done' || f.status === 'error').length;
 
-    // Release file reference after processing (ALL types)
-    f._fileObj = null;
-    f._audioBuffer = null;
+  f.status = 'processing';
+  updateFileListItem(f);
+  updateStats();
+
+  try {
+    await processFile(f);
+    f.status = 'done';
+    log(`✔ Concluído: ${f.name}`, 'ok');
+  } catch (e) {
+    f.status = 'error';
+    f.error = e.message || String(e);
+    log(`✘ Erro em ${f.name}: ${f.error}`, 'err');
   }
 
+  activeTasks[f.type] = Math.max(0, (activeTasks[f.type] || 0) - 1);
+  filesProcessedSoFar = files.filter(f => f.status === 'done' || f.status === 'error').length;
+
+  updateFileListItem(f);
+  updateStats();
+  updateBatchProgress(filesProcessedSoFar);
+
+  // Release memory
+  f._fileObj = null;
+  f._audioBuffer = null;
+  if (f._videoArrayBuffer) f._videoArrayBuffer = null;
+}
+
+let _draining = false;
+function drainQueue() {
+  if (!isProcessing || isCancelled) {
+    if (batchDrainInterval) { clearInterval(batchDrainInterval); batchDrainInterval = null; }
+    _draining = false;
+    return;
+  }
+  if (isPaused || _draining) return;
+  _draining = true;
+
+  let task;
+  while ((task = dequeueTask()) !== null) {
+    // Fire and forget — runTask handles its own completion
+    runTask(task).then(() => {
+      _draining = false;
+      // After each task completes, try to drain more
+      if (!batchDrainInterval) return;
+      drainQueue();
+      checkBatchComplete();
+    });
+  }
+  _draining = false;
+}
+
+function checkBatchComplete() {
+  const totalActive = Object.values(activeTasks).reduce((a, b) => a + b, 0);
+  if (taskQueue.length === 0 && totalActive === 0) {
+    finishProcessing();
+  }
+}
+
+function finishProcessing() {
   stopTimer();
+  if (batchDrainInterval) { clearInterval(batchDrainInterval); batchDrainInterval = null; }
   const elapsed = totalTimeProcessing;
   isProcessing = false;
   isPaused = false;
@@ -1314,11 +1891,62 @@ async function startProcessing() {
   const doneCount = files.filter(f => f.status === 'done').length;
   log(`<strong>Processamento finalizado em ${formatMs(elapsed)}.</strong> ${doneCount}/${files.length} arquivos processados com sucesso.`, 'info');
 
-  // Keep batch card visible with final stats for a moment, then hide after 8s
   updateBatchProgress(files.length);
   $('batchETA').textContent = '—';
   setTimeout(() => { if (!isProcessing) hideBatchProgress(); }, 8000);
 }
+
+async function startProcessing() {
+  if (isProcessing || files.length === 0) return;
+  isProcessing = true;
+  isCancelled = false;
+  isPaused = false;
+  filesProcessedSoFar = 0;
+  totalTimeProcessing = 0;
+  currentFileIndex = 0;
+  activeTasks = {};
+  taskQueue = [];
+  _draining = false;
+
+  setProcessingUI(true);
+  showBatchProgress();
+  startTimer();
+  updateBatchProgress(0);
+
+  // Count concurrent types for log
+  const typeCounts = {};
+  let pendingCount = 0;
+  for (const f of files) {
+    if (f.status === 'pending') {
+      pendingCount++;
+      typeCounts[f.type] = (typeCounts[f.type] || 0) + 1;
+    }
+  }
+  const limits = Object.entries(BATCH_LIMITS).map(([t,c]) => `${t}:${c}`).join(', ');
+  log(`Iniciando processamento concorrente: <strong>${pendingCount}</strong> arquivos pendentes`, 'info');
+  log(`Hardware: ${hardware.tierLabel} (${hardware.cores} cores, ~${hardware.ramGB}GB RAM) — max ${BATCH_MAX_TOTAL} paralelos`, 'dim');
+  log(`Limites: ${limits}`, 'dim');
+
+  // Build task queue from pending files
+  for (const f of files) {
+    if (f.status === 'pending') {
+      taskQueue.push({ file: f, type: f.type });
+    }
+  }
+
+  // Start drain loop — checks queue every 100ms for available slots
+  batchDrainInterval = setInterval(drainQueue, 100);
+  drainQueue();  // immediate first drain
+}
+
+// Pause/resume must also pause/resume the drain
+const _origTogglePause = togglePause;
+togglePause = function() {
+  _origTogglePause();
+  if (!isPaused && isProcessing) {
+    drainQueue(); // resume draining
+  }
+};
 
 async function processFile(f) {
   switch (f.type) {
@@ -1359,6 +1987,14 @@ async function processText(f) {
 
 /* ---- PDF ---- */
 async function processPDF(f) {
+  // --- Cache check ---
+  const cachedPdf = getCachedResult(f);
+  if (cachedPdf && cachedPdf.type === 'ocr') {
+    f.content = cachedPdf.content;
+    log(`  ✔ PDF do cache: ${f.name}`, 'ok');
+    return;
+  }
+
   if (typeof pdfjsLib === 'undefined') {
     throw new Error('PDF.js não carregado. Verifique sua conexão.');
   }
@@ -1379,6 +2015,12 @@ async function processPDF(f) {
 
   f.content = fullText.trim() || `[PDF sem texto extraível (${totalPages} páginas)]`;
   log(`  PDF extraído: ${totalPages} páginas`, 'dim');
+
+  // --- Store in cache ---
+  if (f.content && !f.content.startsWith('[PDF sem')) {
+    setCachedResult(f, 'ocr', f.content);
+    updateCacheUI();
+  }
 }
 
 /* ---- DOCX ---- */
@@ -1443,175 +2085,55 @@ async function processODT(f) {
   log(`  ODT extraído: ${textNodes.length} parágrafos`, 'dim');
 }
 
-/* ---- Image OCR ---- */// Detectar orientação EXIF de um arquivo JPEG
-// Extrair orientação EXIF de dados TIFF (usado por JPEG e PNG eXIf chunk)
-function parseTiffForOrientation(tiffData, tiffOffset) {
-  const view = new DataView(tiffData);
-  if (tiffOffset + 8 > view.byteLength) return 1;
-  const byteOrder = view.getUint16(tiffOffset, false);
-  const le = byteOrder === 0x4949;
-  const ifdOffset = view.getUint32(tiffOffset + 4, le);
-  const absIfd = tiffOffset + ifdOffset;
-  if (absIfd + 2 > view.byteLength) return 1;
-  const numEntries = view.getUint16(absIfd, le);
-  for (let i = 0; i < numEntries; i++) {
-    const entryOffset = absIfd + 2 + (i * 12);
-    if (entryOffset + 12 > view.byteLength) break;
-    if (view.getUint16(entryOffset, le) === 0x0112) {
-      return view.getUint16(entryOffset + 8, le);
-    }
-  }
-  return 1;
-}
-
-// Detectar orientação EXIF de imagem (JPEG e PNG)
-async function getExifOrientation(file) {
-  try {
-    const buf = await file.slice(0, 131072).arrayBuffer(); // 128KB
-    const view = new DataView(buf);
-
-    // === JPEG ===
-    if (view.getUint16(0, false) === 0xFFD8) {
-      let offset = 2;
-      while (offset < view.byteLength - 2) {
-        const marker = view.getUint16(offset, false);
-        if (marker === 0xFFE1) { // App1 EXIF
-          const exifStart = offset + 4;
-          if (view.getUint32(exifStart, false) === 0x45786966 && view.getUint16(exifStart + 4, false) === 0x0000) {
-            return parseTiffForOrientation(buf, exifStart + 6);
-          }
-        }
-        if ((marker & 0xFF00) !== 0xFF00) break;
-        offset += 2 + view.getUint16(offset + 2, false);
-      }
-      return 1;
-    }
-
-    // === PNG ===
-    // Signature: 0x89 0x50 0x4E 0x47 0x0D 0x0A 0x1A 0x0A
-    if (view.getUint32(0, false) === 0x89504E47 && view.getUint32(4, false) === 0x0D0A1A0A) {
-      let offset = 8;
-      while (offset + 8 <= view.byteLength) {
-        const chunkLen = view.getUint32(offset, false);
-        const chunkType = view.getUint32(offset + 4, false);
-        const chunkDataStart = offset + 8;
-
-        // eXIf chunk (0x65584966 = 'eXIf')
-        if (chunkType === 0x65584966) {
-          // eXIf data starts with TIFF header
-          return parseTiffForOrientation(buf, chunkDataStart);
-        }
-
-        // Se encontrar IEND (0x49454E44), parar
-        if (chunkType === 0x49454E44) break;
-
-        // Avançar: 4(len) + 4(type) + data + 4(CRC)
-        offset += 12 + chunkLen;
-      }
-      return 1;
-    }
-
-    // === Outros formatos: sem EXIF ===
-    return 1;
-  } catch(e) {
-    return 1;
-  }
-}
-
-// Converter valor EXIF orientation em transformação canvas
-function exifOrientationToTransform(orientation) {
-  // Retorna {rotation, flipX, flipY} para aplicar no canvas
-  switch (orientation) {
-    case 1: return { rotation: 0, flipX: false, flipY: false };
-    case 2: return { rotation: 0, flipX: true,  flipY: false };
-    case 3: return { rotation: 180, flipX: false, flipY: false };
-    case 4: return { rotation: 0, flipX: false, flipY: true };
-    case 5: return { rotation: 90, flipX: true,  flipY: false };
-    case 6: return { rotation: 90, flipX: false, flipY: false };
-    case 7: return { rotation: 270, flipX: true, flipY: false };
-    case 8: return { rotation: 270, flipX: false, flipY: false };
-    default: return { rotation: 0, flipX: false, flipY: false };
-  }
-}
-
+/* ---- Image OCR (Web Worker preprocessor + Tesseract main thread) ---- */
 async function processImage(f) {
+  // --- Cache check ---
+  const cached = getCachedResult(f, 'ocr_p' + precisionLevel);
+  if (cached && cached.type === 'ocr') {
+    f.content = cached.content;
+    log(`  ✔ OCR do cache (nível ${precisionLevel}): ${f.name} (${cached.content.length} chars)`, 'ok');
+    return;
+  }
+
   if (typeof Tesseract === 'undefined') {
     throw new Error('Tesseract.js não carregado. Verifique sua conexão.');
   }
 
   log(`  Iniciando OCR para ${f.name}...`, 'dim');
 
-  // Detectar EXIF orientation
-  const exifOrientation = await getExifOrientation(f._fileObj);
-  const exifTransform = exifOrientationToTransform(exifOrientation);
-  if (exifOrientation !== 1) {
-    log(`  EXIF: orientação ${exifOrientation} (rotação ${exifTransform.rotation}°)`, 'info');
-  }
+  // Read file data once (transferable to worker)
+  const fileData = await f._fileObj.arrayBuffer();
 
-  const imgBitmap = await createImageBitmap(f._fileObj);
-
-  // Tooltip helper
+  // Tooltip helper (optimized: querySelector by data attribute)
   const updateTooltip = (msg) => {
     const idx = files.indexOf(f);
     if (idx < 0) return;
-    const items = document.querySelectorAll('.file-item');
-    const filtered = activeFilter === 'all' ? files : files.filter(ft => ft.type === activeFilter);
-    const fi = filtered.indexOf(f);
-    if (fi >= 0 && items[fi]) {
-      const ns = items[fi].querySelector('.name');
+    const el = $('fileList').querySelector(`[data-file-idx="${idx}"]`);
+    if (el) {
+      const ns = el.querySelector('.name');
       if (ns) ns.title = msg;
     }
   };
-  const logger = { logger: m => {
-    if (m.status === 'recognizing text')
-      updateTooltip(`${f.name} — OCR: ${Math.round(m.progress * 100)}%`);
-  }};
 
-  // Criar canvas redimensionado + grayscale + EXIF aplicado
-  function prepareCanvas(bitmap, extraDeg, maxDim) {
-    maxDim = maxDim || 2000;
-    const total = (exifTransform.rotation + extraDeg) % 360;
-    const swap = total === 90 || total === 270;
-    const srcW = swap ? bitmap.height : bitmap.width;
-    const srcH = swap ? bitmap.width : bitmap.height;
-
-    // Redimensionar se muito grande
-    let w = srcW, h = srcH;
-    if (w > maxDim || h > maxDim) {
-      const scale = maxDim / Math.max(w, h);
-      w = Math.round(w * scale);
-      h = Math.round(h * scale);
-    }
-
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const cx = c.getContext('2d');
-
-    // Aplicar rotação EXIF + extra
-    cx.save();
-    cx.translate(w/2, h/2);
-    cx.rotate((total * Math.PI) / 180);
-    if (exifTransform.flipX) cx.scale(-1, 1);
-    if (exifTransform.flipY) cx.scale(1, -1);
-    cx.drawImage(bitmap, -srcW/2, -srcH/2, srcW, srcH);
-    cx.restore();
-
-    // Converter para grayscale (Tesseract funciona melhor com cinza)
-    const imgData = cx.getImageData(0, 0, w, h);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const g = Math.round(0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]);
-      d[i] = d[i+1] = d[i+2] = g;
-    }
-    cx.putImageData(imgData, 0, 0);
-    return c;
+  // Reuse a single Tesseract worker across all OCR calls for this file
+  let ocrWorker = null;
+  async function getOCRWorker() {
+    if (ocrWorker) return ocrWorker;
+    ocrWorker = await Tesseract.createWorker('por+eng', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text' && m.progress !== undefined)
+          updateTooltip(`${f.name} — OCR: ${Math.round(m.progress * 100)}%`);
+      }
+    });
+    return ocrWorker;
   }
-
-  async function runOCR(canvas, label) {
-    const r = await Tesseract.recognize(canvas, 'por+eng', logger);
+  async function runOCR(bitmap, label) {
+    const worker = await getOCRWorker();
+    const r = await worker.recognize(bitmap);
     const t = r.data.text.trim();
     const c = r.data.confidence;
     if (t.length > 0) log(`  OCR ${label}: ${c.toFixed(0)}% conf, ${t.length} chars`, 'dim');
+    try { bitmap.close(); } catch(e) {}
     return { text: t, confidence: c };
   }
 
@@ -1624,69 +2146,62 @@ async function processImage(f) {
   function isGood(r) { return r.text.length > 20 && r.confidence > 40; }
 
   // ========= ESTRATÉGIA OTIMIZADA =========
-  // Canvas grayscale + redimensionado → Tesseract
-  // NÃO binarizar — Tesseract lida melhor com grayscale
+  // All canvas/pixel work runs in Web Worker (off main thread)
   let result = { text: '', confidence: 0 };
-
-  // Sempre testar as 4 orientações — Tesseract não detecta rotação
   const angles4 = [0, 90, 180, 270];
 
   if (precisionLevel === 1) {
-    // Grayscale × 4 orientações — pega a melhor
-    log(`  [Nível 1] Grayscale × 4 orientações`, 'dim');
+    log(`  [Nível 1] Grayscale × 4 orientações (Worker)`, 'dim');
     for (const a of angles4) {
-      result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
+      const bitmap = await workerPreprocessImage(fileData, a, false);
+      result = best(result, await runOCR(bitmap, `${a}°`));
       if (isGood(result)) break;
     }
 
   } else if (precisionLevel === 2) {
-    // Grayscale × 4 + binarizado × 4
-    log(`  [Nível 2] Grayscale × 4`, 'dim');
+    log(`  [Nível 2] Grayscale × 4 (Worker)`, 'dim');
     for (const a of angles4) {
-      result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
+      const bitmap = await workerPreprocessImage(fileData, a, false);
+      result = best(result, await runOCR(bitmap, `${a}°`));
       if (isGood(result)) break;
     }
     if (!isGood(result)) {
-      log(`  [Nível 2] Binarizado × 4`, 'dim');
+      log(`  [Nível 2] Binarizado × 4 (Worker)`, 'dim');
       for (const a of angles4) {
-        const c = prepareCanvas(imgBitmap, a);
-        const cx = c.getContext('2d');
-        const id = cx.getImageData(0, 0, c.width, c.height);
-        for (let i = 0; i < id.data.length; i += 4)
-          id.data[i] = id.data[i+1] = id.data[i+2] = id.data[i] > 128 ? 255 : 0;
-        cx.putImageData(id, 0, 0);
-        result = best(result, await runOCR(c, `bin ${a}°`));
+        const bitmap = await workerPreprocessImage(fileData, a, true);
+        result = best(result, await runOCR(bitmap, `bin ${a}°`));
         if (isGood(result)) break;
       }
     }
 
   } else {
-    // Grayscale × 8 + binarizado × 4
     const angles8 = [0, 45, 90, 135, 180, 225, 270, 315];
-    log(`  [Nível 3] Grayscale × 8 ângulos`, 'dim');
+    log(`  [Nível 3] Grayscale × 8 ângulos (Worker)`, 'dim');
     for (const a of angles8) {
-      result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
+      const bitmap = await workerPreprocessImage(fileData, a, false);
+      result = best(result, await runOCR(bitmap, `${a}°`));
       if (isGood(result)) break;
     }
     if (!isGood(result)) {
-      log(`  [Nível 3] Binarizado × 4`, 'dim');
+      log(`  [Nível 3] Binarizado × 4 (Worker)`, 'dim');
       for (const a of angles4) {
-        const c = prepareCanvas(imgBitmap, a);
-        const cx = c.getContext('2d');
-        const id = cx.getImageData(0, 0, c.width, c.height);
-        for (let i = 0; i < id.data.length; i += 4)
-          id.data[i] = id.data[i+1] = id.data[i+2] = id.data[i] > 128 ? 255 : 0;
-        cx.putImageData(id, 0, 0);
-        result = best(result, await runOCR(c, `bin ${a}°`));
+        const bitmap = await workerPreprocessImage(fileData, a, true);
+        result = best(result, await runOCR(bitmap, `bin ${a}°`));
         if (isGood(result)) break;
       }
     }
   }
 
   f.content = result.text || `[OCR não encontrou texto em ${f.name}]`;
-  // Free image bitmap and canvases
-  try { imgBitmap.close(); } catch(e) {}
+  // Terminate worker to free WASM memory
+  if (ocrWorker) { try { ocrWorker.terminate(); } catch(e) {} ocrWorker = null; }
   log(`  OCR finalizado (nível ${precisionLevel}): ${result.confidence.toFixed(0)}% conf, ${result.text.length} chars`, result.text.length > 10 ? 'ok' : 'warntext');
+
+  // --- Store in cache ---
+  if (result.text && result.text.length > 0) {
+    setCachedResult(f, 'ocr', f.content, null, 'ocr_p' + precisionLevel);
+    updateCacheUI();
+  }
 }
 
 /* ---- Transcription via Web Speech API (fallback) ---- */
@@ -1769,6 +2284,31 @@ async function transcribeViaSpeechAPI(f, mediaElementOrBuffer, duration) {
 async function processAudio(f) {
   log(`  Processando áudio: ${f.name}...`, 'dim');
 
+  // --- Cache check for transcription ---
+  const cachedAudio = getCachedResult(f);
+  if (cachedAudio && (cachedAudio.type === 'whisper' || cachedAudio.type === 'whisper_chunks')) {
+    // Still decode for metadata (fast), but skip transcription
+    const arrayBuffer = await f._fileObj.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const duration = audioBuffer.duration;
+    const sr = audioBuffer.sampleRate;
+    const ch = audioBuffer.numberOfChannels;
+    const ch0 = audioBuffer.getChannelData(0);
+    let sumSq = 0, peak = 0;
+    for (let i = 0; i < ch0.length; i++) { const v = Math.abs(ch0[i]); sumSq += ch0[i]*ch0[i]; if(v>peak)peak=v; }
+    const rms = Math.sqrt(sumSq / ch0.length);
+    audioCtx.close();
+    const min = Math.floor(duration/60), sec = Math.floor(duration%60);
+    const durStr = min>0 ? `${min}min ${sec}s` : `${duration.toFixed(1)}s`;
+    let output = `[Áudio: ${f.name}]\nDuração: ${durStr}\nCanais: ${ch}\nTaxa de amostragem: ${sr} Hz\nVolume RMS: ${(rms*100).toFixed(1)}% | Pico: ${(peak*100).toFixed(1)}%\n`;
+    output += `\n--- TRANSCRIÇÃO (cache) ---\n${cachedAudio.content}\n--- FIM TRANSCRIÇÃO ---\n`;
+    f.content = output;
+    if (cachedAudio.extra) f.chunks = cachedAudio.extra;
+    log(`  ✔ Transcrição do cache: ${f.name}`, 'ok');
+    return;
+  }
+
   try {
     const arrayBuffer = await f._fileObj.arrayBuffer();
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1809,8 +2349,9 @@ async function processAudio(f) {
 
     audioCtx.close();
 
-    // Convert to Float32Array at 16kHz for Whisper
-    const float32 = audioBufferToFloat32(audioBuffer);
+    // Convert to Float32Array at 16kHz for Whisper (heavy resampling in Worker)
+    const ch0Data = audioBuffer.getChannelData(0);
+    const float32 = await workerResampleAudio(ch0Data, audioBuffer.numberOfChannels, audioBuffer.sampleRate);
     let transcriptionText = null;
 
     // Try Whisper first
@@ -1843,6 +2384,12 @@ async function processAudio(f) {
 
     f.content = output;
 
+    // --- Store transcription in cache ---
+    if (transcriptionText && transcriptionText.length > 0) {
+      setCachedResult(f, 'whisper', transcriptionText, f.chunks || null);
+      updateCacheUI();
+    }
+
   } catch (e) {
     f.content = `[Erro ao processar áudio ${f.name}: ${e.message}]`;
     log(`  Erro áudio: ${e.message}`, 'err');
@@ -1854,6 +2401,31 @@ async function processVideo(f) {
   log(`  Processando vídeo: ${f.name}...`, 'dim');
 
   try {
+    // --- Cache check for transcription ---
+    const cachedVideo = getCachedResult(f);
+    if (cachedVideo && (cachedVideo.type === 'whisper' || cachedVideo.type === 'whisper_chunks')) {
+      const video = document.createElement('video');
+      video.preload = 'auto'; video.muted = false; video.style.display = 'none';
+      document.body.appendChild(video);
+      const url = URL.createObjectURL(f._fileObj);
+      video.src = url;
+      await new Promise((resolve, reject) => {
+        video.onloadedmetadata = resolve;
+        video.onerror = () => reject(new Error('Formato não suportado'));
+        setTimeout(() => reject(new Error('Timeout')), 30000);
+      });
+      const duration = video.duration, w = video.videoWidth, h = video.videoHeight;
+      URL.revokeObjectURL(url); video.remove();
+      const min = Math.floor(duration/60), sec = Math.floor(duration%60);
+      const durStr = min>0 ? `${min}min ${sec}s` : `${duration.toFixed(1)}s`;
+      let output = `[Vídeo: ${f.name}]\nDuração: ${durStr}\nResolução: ${w}×${h}\nFormato: ${f.ext.toUpperCase()}\n`;
+      output += `\n--- TRANSCRIÇÃO (cache) ---\n${cachedVideo.content}\n--- FIM TRANSCRIÇÃO ---\n`;
+      f.content = output;
+      if (cachedVideo.extra) f.chunks = cachedVideo.extra;
+      log(`  ✔ Transcrição do cache: ${f.name}`, 'ok');
+      return;
+    }
+
     // Create a hidden video element to extract metadata
     const video = document.createElement('video');
     video.preload = 'auto';
@@ -1895,10 +2467,11 @@ async function processVideo(f) {
     let transcriptionText = null;
     try {
       log(`  Extraindo trilha de áudio do vídeo...`, 'dim');
-      const videoArrayBuffer = await f._fileObj.arrayBuffer();
+      let videoArrayBuffer = await f._fileObj.arrayBuffer();
       const videoAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const videoAudioBuffer = await videoAudioCtx.decodeAudioData(videoArrayBuffer);
-      const float32 = audioBufferToFloat32(videoAudioBuffer);
+      const ch0Data = videoAudioBuffer.getChannelData(0);
+      const float32 = await workerResampleAudio(ch0Data, videoAudioBuffer.numberOfChannels, videoAudioBuffer.sampleRate);
       videoAudioCtx.close();
 
       // Try Whisper
@@ -1936,6 +2509,12 @@ async function processVideo(f) {
     }
 
     f.content = output;
+
+    // --- Store transcription in cache ---
+    if (transcriptionText && transcriptionText.length > 0) {
+      setCachedResult(f, 'whisper', transcriptionText, f.chunks || null);
+      updateCacheUI();
+    }
 
     // Cleanup
     URL.revokeObjectURL(url);
@@ -2502,6 +3081,7 @@ console.warn = function(...args) {
 /* ============================================================
    INITIAL STATE
    ============================================================ */
+updateCacheUI();
 log('Aplicação pronta. Selecione uma pasta para começar.', 'info');
 </script>
 </body>
