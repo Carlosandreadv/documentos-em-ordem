@@ -105,6 +105,16 @@ button.retry{background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;borde
 .port-chip.found{border-color:#22c55e;color:#22c55e;background:rgba(34,197,94,.1)}
 .port-chip.active{border-color:var(--accent);color:var(--accent);background:rgba(56,189,248,.1)}
 
+/* Precision selector */
+.precision-selector{display:flex;flex-direction:column;gap:6px}
+.prec-btn{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);cursor:pointer;transition:.15s;border-left:3px solid transparent;text-align:left}
+.prec-btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--panel2))}
+.prec-btn.active{border-color:var(--accent);border-left-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--panel2))}
+.prec-icon{font-size:16px;flex-shrink:0}
+.prec-label{font-weight:600;font-size:13px;color:var(--text)}
+.prec-desc{font-size:10px;color:var(--muted);display:block;margin-top:1px}
+.prec-text{display:flex;flex-direction:column;flex:1}
+
 main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template-columns:340px 1fr;gap:16px}
 .panel{
   background:color-mix(in srgb,var(--panel) 96%,transparent);
@@ -211,6 +221,26 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
       <div class="stat-box red"><div class="num" id="statErrors">0</div><div class="label">Erros</div></div>
     </div>
 
+    <!-- Precision -->
+    <div class="section-title"><span>Precisão</span></div>
+    <div class="precision-selector">
+      <button class="prec-btn active" data-level="1" onclick="setPrecision(1)">
+        <span class="prec-icon">⚡</span>
+        <span class="prec-label">Rápido</span>
+        <span class="prec-desc">Original × 4 orientações</span>
+      </button>
+      <button class="prec-btn" data-level="2" onclick="setPrecision(2)">
+        <span class="prec-icon">⚖️</span>
+        <span class="prec-label">Equilibrado</span>
+        <span class="prec-desc">Original + binarizado × 4</span>
+      </button>
+      <button class="prec-btn" data-level="3" onclick="setPrecision(3)">
+        <span class="prec-icon">🔬</span>
+        <span class="prec-label">Máximo</span>
+        <span class="prec-desc">3 pré-processamentos × 8 ângulos</span>
+      </button>
+    </div>
+
     <!-- Progress -->
     <div class="section-title"><span>Progresso</span><span class="badge" id="progressPct">0%</span></div>
     <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
@@ -221,7 +251,7 @@ main{max-width:1400px;margin:0 auto;padding:16px 20px;display:grid;grid-template
         <div class="batch-timer" id="batchTimer">00:00</div>
         <div class="batch-details">
           <div class="detail"><strong id="batchCurrentName">—</strong></div>
-          <div class="detail">Arquivo <strong id="batchFileIdx">0</strong> de <strong id="batchFileTotal">0</strong></div>
+          <div class="detail">Arquivo <strong id="batchFileIdx">0</strong> de <strong id="batchFileTotal">0</strong> · Precisão: <strong id="batchPrecLabel">⚡ Rápido</strong></div>
           <div class="detail">Tempo restante estimado: <strong id="batchETA">—</strong></div>
         </div>
       </div>
@@ -392,6 +422,19 @@ let isCancelled = false;
 let isPaused = false;
 let pauseResolve = null;  // resolve function to unpause
 let activeFilter = 'all';
+let precisionLevel = 1;  // 1=fast, 2=balanced, 3=maximum
+
+function setPrecision(level) {
+  precisionLevel = level;
+  document.querySelectorAll('.prec-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.level) === level);
+  });
+  const labels = {1:'⚡ Rápido', 2:'⚖️ Equilibrado', 3:'🔬 Máximo'};
+  log(`Precisão alterada para: ${labels[level]}`, 'info');
+}
+function getPrecLabel() {
+  return {1:'⚡ Rápido', 2:'⚖️ Equilibrado', 3:'🔬 Máximo'}[precisionLevel];
+}
 let batchStartTime = 0;
 let currentFileIndex = 0;
 let filesProcessedSoFar = 0;
@@ -449,6 +492,7 @@ function updateBatchProgress(idx) {
   $('batchPending').textContent = pending + ' na fila';
   $('batchDoneChip').textContent = done + ' prontos';
   $('batchErrChip').textContent = errs + ' erros';
+  $('batchPrecLabel').textContent = getPrecLabel();
   if (files[idx]) {
     $('batchCurrentName').textContent = files[idx].name;
   }
@@ -1035,8 +1079,9 @@ async function processImage(f) {
     return c;
   }
 
-  // Binarizar canvas (grayscale + contraste + threshold)
-  function binarize(canvas) {
+  // Pré-processamentos disponíveis
+  function binarize(canvas, threshold) {
+    threshold = threshold || 128;
     const cx = canvas.getContext('2d');
     const imgData = cx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
@@ -1044,14 +1089,36 @@ async function processImage(f) {
     for (let i = 0; i < d.length; i += 4) {
       const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
       d[i] = d[i+1] = d[i+2] = g;
-      if (g < mn) mn = g;
-      if (g > mx) mx = g;
+      if (g < mn) mn = g; if (g > mx) mx = g;
     }
     const rng = mx - mn || 1;
-    // Threshold 128 (mais equilibrado que 140)
     for (let i = 0; i < d.length; i += 4) {
       const v = ((d[i] - mn) / rng) * 255;
-      d[i] = d[i+1] = d[i+2] = v > 128 ? 255 : 0;
+      d[i] = d[i+1] = d[i+2] = v > threshold ? 255 : 0;
+    }
+    cx.putImageData(imgData, 0, 0);
+    return canvas;
+  }
+
+  function enhanceContrast(canvas) {
+    const cx = canvas.getContext('2d');
+    const imgData = cx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = imgData.data;
+    // CLAHE simplificado: histogram stretching + sharpening
+    let mn = 255, mx = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+      d[i] = d[i+1] = d[i+2] = g;
+      if (g < mn) mn = g; if (g > mx) mx = g;
+    }
+    const rng = mx - mn || 1;
+    // Stretch contrast para 5-95% (remove outliers)
+    for (let i = 0; i < d.length; i += 4) {
+      const v = ((d[i] - mn) / rng) * 255;
+      // Aplicar curva S para realçar contraste
+      const s = v / 255;
+      const curved = (s < 0.5) ? 2 * s * s : 1 - 2 * (1 - s) * (1 - s);
+      d[i] = d[i+1] = d[i+2] = Math.min(255, Math.max(0, curved * 255));
     }
     cx.putImageData(imgData, 0, 0);
     return canvas;
@@ -1071,33 +1138,86 @@ async function processImage(f) {
     return a.confidence >= b.confidence ? a : b;
   }
 
-  // ========= ESTRATÉGIA OTIMIZADA =========
-  // 1) Imagem original (sem binarização) em 4 orientações — mais rápido, Tesseract já tem PSMs internos
-  // 2) Se pouco texto, tentar binarizado em 4 orientações
+  function isGood(r) { return r.text.length > 50 && r.confidence > 60; }
+
+  // ========= ESTRATÉGIA POR NÍVEL DE PRECISÃO =========
   let result = { text: '', confidence: 0 };
+  const angles4 = [0, 90, 180, 270];
+  const angles8 = [0, 45, 90, 135, 180, 225, 270, 315];
 
-  // PASSO 1: Original em 4 orientações (sem binarização — Tesseract lida melhor)
-  log(`  Passo 1: imagem original × 4 orientações...`, 'dim');
-  for (const angle of [0, 90, 180, 270]) {
-    const canvas = rotateImage(imgBitmap, angle);
-    const r = await runOCR(canvas, `original ${angle}°`);
-    result = best(result, r);
-    if (result.text.length > 50 && result.confidence > 60) break;
-  }
+  if (precisionLevel === 1) {
+    // === NÍVEL 1: RÁPIDO ===
+    // Original × 4 orientações
+    log(`  [Nível 1] Original × 4 orientações`, 'dim');
+    for (const a of angles4) {
+      result = best(result, await runOCR(rotateImage(imgBitmap, a), `orig ${a}°`));
+      if (isGood(result)) break;
+    }
+    // Fallback: binarizado
+    if (result.text.length < 30) {
+      log(`  [Nível 1] Fallback: binarizado × 4`, 'dim');
+      for (const a of angles4) {
+        result = best(result, await runOCR(binarize(rotateImage(imgBitmap, a)), `bin ${a}°`));
+        if (isGood(result)) break;
+      }
+    }
 
-  // PASSO 2: Se pouco texto, tentar binarizado
-  if (result.text.length < 30) {
-    log(`  Passo 2: binarizado × 4 orientações...`, 'dim');
-    for (const angle of [0, 90, 180, 270]) {
-      const canvas = binarize(rotateImage(imgBitmap, angle));
-      const r = await runOCR(canvas, `binarizado ${angle}°`);
-      result = best(result, r);
-      if (result.text.length > 50 && result.confidence > 60) break;
+  } else if (precisionLevel === 2) {
+    // === NÍVEL 2: EQUILIBRADO ===
+    // Original × 4 + Binarizado × 4 + Contraste × 4
+    log(`  [Nível 2] Original × 4`, 'dim');
+    for (const a of angles4) {
+      result = best(result, await runOCR(rotateImage(imgBitmap, a), `orig ${a}°`));
+      if (isGood(result)) break;
+    }
+    if (result.text.length < 30) {
+      log(`  [Nível 2] Binarizado × 4`, 'dim');
+      for (const a of angles4) {
+        result = best(result, await runOCR(binarize(rotateImage(imgBitmap, a)), `bin ${a}°`));
+        if (isGood(result)) break;
+      }
+    }
+    if (result.text.length < 30) {
+      log(`  [Nível 2] Contraste × 4`, 'dim');
+      for (const a of angles4) {
+        result = best(result, await runOCR(enhanceContrast(rotateImage(imgBitmap, a)), `ctr ${a}°`));
+        if (isGood(result)) break;
+      }
+    }
+
+  } else {
+    // === NÍVEL 3: MÁXIMO ===
+    // Original × 8 + Binarizado(128) × 8 + Binarizado(100) × 8 + Contraste × 8
+    log(`  [Nível 3] Original × 8 ângulos`, 'dim');
+    for (const a of angles8) {
+      result = best(result, await runOCR(rotateImage(imgBitmap, a), `orig ${a}°`));
+      if (isGood(result)) break;
+    }
+    if (result.text.length < 30) {
+      log(`  [Nível 3] Binarizado(128) × 8`, 'dim');
+      for (const a of angles8) {
+        result = best(result, await runOCR(binarize(rotateImage(imgBitmap, a), 128), `bin128 ${a}°`));
+        if (isGood(result)) break;
+      }
+    }
+    if (result.text.length < 30) {
+      log(`  [Nível 3] Binarizado(100) × 8`, 'dim');
+      for (const a of angles8) {
+        result = best(result, await runOCR(binarize(rotateImage(imgBitmap, a), 100), `bin100 ${a}°`));
+        if (isGood(result)) break;
+      }
+    }
+    if (result.text.length < 30) {
+      log(`  [Nível 3] Contraste × 8`, 'dim');
+      for (const a of angles8) {
+        result = best(result, await runOCR(enhanceContrast(rotateImage(imgBitmap, a)), `ctr ${a}°`));
+        if (isGood(result)) break;
+      }
     }
   }
 
   f.content = result.text || `[OCR não encontrou texto em ${f.name}]`;
-  log(`  OCR finalizado: ${result.confidence.toFixed(0)}% conf, ${result.text.length} chars`, result.text.length > 10 ? 'ok' : 'warntext');
+  log(`  OCR finalizado (nível ${precisionLevel}): ${result.confidence.toFixed(0)}% conf, ${result.text.length} chars`, result.text.length > 10 ? 'ok' : 'warntext');
 }
 
 /* ---- Audio metadata ---- */
