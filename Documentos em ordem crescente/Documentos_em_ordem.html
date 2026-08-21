@@ -1121,47 +1121,49 @@ async function processImage(f) {
   // NÃO binarizar — Tesseract lida melhor com grayscale
   let result = { text: '', confidence: 0 };
 
-  if (precisionLevel === 1) {
-    // Original grayscale
-    log(`  [Nível 1] Original grayscale`, 'dim');
-    result = await runOCR(prepareCanvas(imgBitmap, 0), 'original');
-    if (!isGood(result)) {
-      log(`  [Nível 1] Retry: 90°`, 'dim');
-      result = best(result, await runOCR(prepareCanvas(imgBitmap, 90), 'rot 90°'));
-    }
-    if (!isGood(result)) {
-      log(`  [Nível 1] Retry: 270°`, 'dim');
-      result = best(result, await runOCR(prepareCanvas(imgBitmap, 270), 'rot 270°'));
-    }
+  // Sempre testar as 4 orientações — Tesseract não detecta rotação
+  const angles4 = [0, 90, 180, 270];
 
-  } else if (precisionLevel === 2) {
-    log(`  [Nível 2] Original × 4 orientações`, 'dim');
-    for (const a of [0, 90, 180, 270]) {
+  if (precisionLevel === 1) {
+    // Grayscale × 4 orientações — pega a melhor
+    log(`  [Nível 1] Grayscale × 4 orientações`, 'dim');
+    for (const a of angles4) {
       result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
       if (isGood(result)) break;
     }
-    // Fallback: binarizado suave
+
+  } else if (precisionLevel === 2) {
+    // Grayscale × 4 + binarizado × 4
+    log(`  [Nível 2] Grayscale × 4`, 'dim');
+    for (const a of angles4) {
+      result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
+      if (isGood(result)) break;
+    }
     if (!isGood(result)) {
-      log(`  [Nível 2] Fallback: binarizado`, 'dim');
-      const c = prepareCanvas(imgBitmap, 0);
-      const cx = c.getContext('2d');
-      const id = cx.getImageData(0, 0, c.width, c.height);
-      for (let i = 0; i < id.data.length; i += 4)
-        id.data[i] = id.data[i+1] = id.data[i+2] = id.data[i] > 128 ? 255 : 0;
-      cx.putImageData(id, 0, 0);
-      result = best(result, await runOCR(c, 'binarizado'));
+      log(`  [Nível 2] Binarizado × 4`, 'dim');
+      for (const a of angles4) {
+        const c = prepareCanvas(imgBitmap, a);
+        const cx = c.getContext('2d');
+        const id = cx.getImageData(0, 0, c.width, c.height);
+        for (let i = 0; i < id.data.length; i += 4)
+          id.data[i] = id.data[i+1] = id.data[i+2] = id.data[i] > 128 ? 255 : 0;
+        cx.putImageData(id, 0, 0);
+        result = best(result, await runOCR(c, `bin ${a}°`));
+        if (isGood(result)) break;
+      }
     }
 
   } else {
-    const angles = [0, 45, 90, 135, 180, 225, 270, 315];
-    log(`  [Nível 3] Original × 8 ângulos`, 'dim');
-    for (const a of angles) {
+    // Grayscale × 8 + binarizado × 4
+    const angles8 = [0, 45, 90, 135, 180, 225, 270, 315];
+    log(`  [Nível 3] Grayscale × 8 ângulos`, 'dim');
+    for (const a of angles8) {
       result = best(result, await runOCR(prepareCanvas(imgBitmap, a), `${a}°`));
       if (isGood(result)) break;
     }
     if (!isGood(result)) {
       log(`  [Nível 3] Binarizado × 4`, 'dim');
-      for (const a of [0, 90, 180, 270]) {
+      for (const a of angles4) {
         const c = prepareCanvas(imgBitmap, a);
         const cx = c.getContext('2d');
         const id = cx.getImageData(0, 0, c.width, c.height);
