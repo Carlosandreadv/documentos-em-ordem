@@ -990,16 +990,16 @@ async function processImage(f) {
 
   log(`  Iniciando OCR para ${f.name}...`, 'dim');
 
-  // Detectar EXIF orientation antes de qualquer processamento
+  // Detectar EXIF orientation
   const exifOrientation = await getExifOrientation(f._fileObj);
   const exifTransform = exifOrientationToTransform(exifOrientation);
   if (exifOrientation !== 1) {
-    log(`  EXIF Orientation detectado: ${exifOrientation} (rotação: ${exifTransform.rotation}°${exifTransform.flipX ? ', flipX' : ''}${exifTransform.flipY ? ', flipY' : ''})`, 'info');
+    log(`  EXIF: orientação ${exifOrientation} (rotação ${exifTransform.rotation}°)`, 'info');
   }
 
   const imgBitmap = await createImageBitmap(f._fileObj);
 
-  // Função auxiliar: atualizar tooltip do arquivo na lista
+  // Tooltip helper
   const updateTooltip = (msg) => {
     const idx = files.indexOf(f);
     if (idx < 0) return;
@@ -1011,38 +1011,34 @@ async function processImage(f) {
       if (ns) ns.title = msg;
     }
   };
+  const logger = { logger: m => {
+    if (m.status === 'recognizing text')
+      updateTooltip(`${f.name} — OCR: ${Math.round(m.progress * 100)}%`);
+  }};
 
-  const logger = {
-    logger: m => {
-      if (m.status === 'recognizing text') {
-        updateTooltip(`${f.name} — OCR: ${Math.round(m.progress * 100)}%`);
-      }
-    }
-  };
-
-  // Função: aplicar transformação EXIF + rotação extra + preprocessamento
-  function preprocessImage(bitmap, extraRotationDeg, exif) {
+  // Aplicar rotação EXIF + extra ao bitmap
+  function rotateImage(bitmap, extraDeg) {
     const c = document.createElement('canvas');
     const cx = c.getContext('2d');
     const w = bitmap.width, h = bitmap.height;
-
-    // Rotação total = EXIF + extra
-    const totalRotation = (exif.rotation + extraRotationDeg) % 360;
-    const is90or270 = totalRotation === 90 || totalRotation === 270;
-
-    c.width = is90or270 ? h : w;
-    c.height = is90or270 ? w : h;
-
+    const total = (exifTransform.rotation + extraDeg) % 360;
+    const swap = total === 90 || total === 270;
+    c.width = swap ? h : w;
+    c.height = swap ? w : h;
     cx.save();
-    cx.translate(c.width / 2, c.height / 2);
-    cx.rotate((totalRotation * Math.PI) / 180);
-    if (exif.flipX) cx.scale(-1, 1);
-    if (exif.flipY) cx.scale(1, -1);
-    cx.drawImage(bitmap, -w / 2, -h / 2);
+    cx.translate(c.width/2, c.height/2);
+    cx.rotate((total * Math.PI) / 180);
+    if (exifTransform.flipX) cx.scale(-1, 1);
+    if (exifTransform.flipY) cx.scale(1, -1);
+    cx.drawImage(bitmap, -w/2, -h/2);
     cx.restore();
+    return c;
+  }
 
-    // Cinza + normalização + binarização
-    const imgData = cx.getImageData(0, 0, c.width, c.height);
+  // Binarizar canvas (grayscale + contraste + threshold)
+  function binarize(canvas) {
+    const cx = canvas.getContext('2d');
+    const imgData = cx.getImageData(0, 0, canvas.width, canvas.height);
     const d = imgData.data;
     let mn = 255, mx = 0;
     for (let i = 0; i < d.length; i += 4) {
@@ -1052,72 +1048,59 @@ async function processImage(f) {
       if (g > mx) mx = g;
     }
     const rng = mx - mn || 1;
+    // Threshold 128 (mais equilibrado que 140)
     for (let i = 0; i < d.length; i += 4) {
       const v = ((d[i] - mn) / rng) * 255;
-      d[i] = d[i+1] = d[i+2] = v > 140 ? 255 : 0;
+      d[i] = d[i+1] = d[i+2] = v > 128 ? 255 : 0;
     }
     cx.putImageData(imgData, 0, 0);
-    return c;
+    return canvas;
   }
 
-  // Função: rodar OCR num canvas e retornar {text, confidence}
   async function runOCR(canvas, label) {
     const r = await Tesseract.recognize(canvas, 'por+eng', logger);
     const t = r.data.text.trim();
     const c = r.data.confidence;
-    if (t.length > 0) log(`  OCR ${label}: ${c.toFixed(0)}% confiança, ${t.length} chars`, 'dim');
+    if (t.length > 0) log(`  OCR ${label}: ${c.toFixed(0)}% conf, ${t.length} chars`, 'dim');
     return { text: t, confidence: c };
   }
 
-  // Função: melhor entre dois resultados OCR
-  function bestResult(a, b) {
+  function best(a, b) {
     if (a.text.length > b.text.length * 1.1) return a;
     if (b.text.length > a.text.length * 1.1) return b;
     return a.confidence >= b.confidence ? a : b;
   }
 
-  // === PASSO 1: Com EXIF aplicado, testar 4 orientações extras ===
-  const extraAngles = [0, 90, 180, 270];
-  let best = { text: '', confidence: 0 };
+  // ========= ESTRATÉGIA OTIMIZADA =========
+  // 1) Imagem original (sem binarização) em 4 orientações — mais rápido, Tesseract já tem PSMs internos
+  // 2) Se pouco texto, tentar binarizado em 4 orientações
+  let result = { text: '', confidence: 0 };
 
-  log(`  Testando orientações (EXIF + ${extraAngles.length} rotações)...`, 'dim');
-  for (const angle of extraAngles) {
-    const canvas = preprocessImage(imgBitmap, angle, exifTransform);
-    const result = await runOCR(canvas, `EXIF+${angle}`);
-    best = bestResult(best, result);
-    if (best.text.length > 50 && best.confidence > 70) break;
+  // PASSO 1: Original em 4 orientações (sem binarização — Tesseract lida melhor)
+  log(`  Passo 1: imagem original × 4 orientações...`, 'dim');
+  for (const angle of [0, 90, 180, 270]) {
+    const canvas = rotateImage(imgBitmap, angle);
+    const r = await runOCR(canvas, `original ${angle}°`);
+    result = best(result, r);
+    if (result.text.length > 50 && result.confidence > 60) break;
   }
 
-  // === PASSO 2: Se pouco texto, tentar com imagem original (sem binarização) ===
-  if (best.text.length < 20 && f.size > 10000) {
-    log(`  Pouco texto detectado (${best.text.length} chars), tentando imagem original...`, 'dim');
-
-    for (const angle of extraAngles) {
-      const c = document.createElement('canvas');
-      const cx = c.getContext('2d');
-      const w = imgBitmap.width, h = imgBitmap.height;
-      const totalRot = (exifTransform.rotation + angle) % 360;
-      const is90 = totalRot === 90 || totalRot === 270;
-      c.width = is90 ? h : w;
-      c.height = is90 ? w : h;
-      cx.save();
-      cx.translate(c.width/2, c.height/2);
-      cx.rotate((totalRot * Math.PI) / 180);
-      if (exifTransform.flipX) cx.scale(-1, 1);
-      if (exifTransform.flipY) cx.scale(1, -1);
-      cx.drawImage(imgBitmap, -w/2, -h/2);
-      cx.restore();
-      const result = await runOCR(c, `original EXIF+${angle}`);
-      best = bestResult(best, result);
-      if (best.text.length > 50 && best.confidence > 70) break;
+  // PASSO 2: Se pouco texto, tentar binarizado
+  if (result.text.length < 30) {
+    log(`  Passo 2: binarizado × 4 orientações...`, 'dim');
+    for (const angle of [0, 90, 180, 270]) {
+      const canvas = binarize(rotateImage(imgBitmap, angle));
+      const r = await runOCR(canvas, `binarizado ${angle}°`);
+      result = best(result, r);
+      if (result.text.length > 50 && result.confidence > 60) break;
     }
   }
 
-  f.content = best.text || `[OCR não encontrou texto em ${f.name}]`;
-  log(`  OCR finalizado: ${best.confidence.toFixed(0)}% confiança, ${best.text.length} caracteres`, 'ok');
+  f.content = result.text || `[OCR não encontrou texto em ${f.name}]`;
+  log(`  OCR finalizado: ${result.confidence.toFixed(0)}% conf, ${result.text.length} chars`, result.text.length > 10 ? 'ok' : 'warntext');
 }
 
-/* ---- Audio transcription ---- */
+/* ---- Audio metadata ---- */
 async function processAudio(f) {
   log(`  Processando áudio: ${f.name}...`, 'dim');
 
@@ -1125,128 +1108,56 @@ async function processAudio(f) {
     const arrayBuffer = await f._fileObj.arrayBuffer();
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-    const duration = audioBuffer.duration.toFixed(1);
-    const sampleRate = audioBuffer.sampleRate;
-    const channels = audioBuffer.numberOfChannels;
+    const duration = audioBuffer.duration;
+    const sr = audioBuffer.sampleRate;
+    const ch = audioBuffer.numberOfChannels;
+    const length = audioBuffer.length;
+
+    // Calcular volume RMS e pico
+    const ch0 = audioBuffer.getChannelData(0);
+    let sumSq = 0, peak = 0;
+    for (let i = 0; i < ch0.length; i++) {
+      const v = Math.abs(ch0[i]);
+      sumSq += ch0[i] * ch0[i];
+      if (v > peak) peak = v;
+    }
+    const rms = Math.sqrt(sumSq / ch0.length);
+
+    // Formatar duração
+    const min = Math.floor(duration / 60);
+    const sec = Math.floor(duration % 60);
+    const durStr = min > 0 ? `${min}min ${sec}s` : `${duration.toFixed(1)}s`;
 
     let output = `[Áudio: ${f.name}]\n` +
-                 `Duração: ${duration}s\n` +
-                 `Canais: ${channels}\n` +
-                 `Taxa de amostragem: ${sampleRate} Hz\n`;
+                 `Duração: ${durStr}\n` +
+                 `Canais: ${ch}\n` +
+                 `Taxa de amostragem: ${sr} Hz\n` +
+                 `Volume RMS: ${(rms * 100).toFixed(1)}% | Pico: ${(peak * 100).toFixed(1)}%\n`;
 
-    // Calcular volume RMS para detectar se há áudio real
-    const ch0 = audioBuffer.getChannelData(0);
-    let sumSq = 0;
-    for (let i = 0; i < ch0.length; i++) sumSq += ch0[i] * ch0[i];
-    const rms = Math.sqrt(sumSq / ch0.length);
-    output += `Volume RMS: ${(rms * 100).toFixed(1)}%\n`;
-
-    const hasSpeechAPI = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
-
-    if (!hasSpeechAPI || rms < 0.005) {
-      // Sem Speech API ou áudio muito silencioso
-      const reason = !hasSpeechAPI ? 'Reconhecimento de fala não suportado neste navegador.'
-                              : 'Áudio muito silencioso (RMS < 0.5%).';
-      f.content = output + `\n[${reason}]\n` +
-                  'Para transcrição completa, use Whisper (OpenAI), Azure Speech ou Google STT.';
-      audioCtx.close();
-      return;
+    // Análise de silêncio
+    if (rms < 0.005) {
+      output += `\n[Áudio muito silencioso — sem voz detectável]\n`;
+    } else {
+      output += `\n[Áudio com conteúdo (RMS ${(rms*100).toFixed(1)}%)]\n`;
     }
 
-    // Converter para WAV e tentar transcrição via Web Speech API
-    try {
-      const wavBlob = audioBufferToWav(audioBuffer);
-      const audioUrl = URL.createObjectURL(wavBlob);
-      const audioEl = new Audio(audioUrl);
-      audioEl.crossOrigin = 'anonymous';
+    output += `\n[Transcrição de áudio em navegador é extremamente limitada.\n` +
+              `A Web Speech API do navegador só funciona com microfone ao vivo,\n` +
+              `não com arquivos de áudio gravados.\n\n` +
+              `Para transcrição precisa, use:\n` +
+              `  • Whisper (OpenAI) — gratuito e muito preciso\n` +
+              `  • Azure Speech-to-Text — enterprise\n` +
+              `  • Google Cloud Speech-to-Text\n` +
+              `  • AssemblyAI — API simples e precisa]\n`;
 
-      // Tentar captureStream
-      let stream;
-      if (typeof audioEl.captureStream === 'function') {
-        stream = audioEl.captureStream();
-      } else if (typeof audioEl.mozCaptureStream === 'function') {
-        stream = audioEl.mozCaptureStream();
-      }
+    f.content = output;
+    audioCtx.close();
+    log(`  Áudio analisado: ${durStr}, ${ch} canais, RMS ${(rms*100).toFixed(1)}%`, 'ok');
 
-      if (stream) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'pt-BR';
-        recognition.continuous = true;
-        recognition.interimResults = false;
-
-        const transcription = await new Promise((resolve) => {
-          let text = '';
-          let timer = null;
-
-          recognition.onresult = (ev) => {
-            for (let i = ev.resultIndex; i < ev.results.length; i++) {
-              if (ev.results[i].isFinal) text += ev.results[i][0].transcript + ' ';
-            }
-          };
-          recognition.onerror = () => {};
-          recognition.onend = () => resolve(text.trim());
-
-          try { recognition.start(); } catch(e) { resolve(''); return; }
-          audioEl.play().catch(() => resolve(''));
-          timer = setTimeout(() => { try { recognition.stop(); } catch(e){} }, (duration * 1000) + 10000);
-        });
-
-        URL.revokeObjectURL(audioUrl);
-        audioCtx.close();
-        clearTimeout(timer);
-
-        if (transcription.length > 5) {
-          output += `\nTRANSCRIÇÃO (Web Speech API):\n\n${transcription}`;
-          log(`  Transcrição: ${transcription.substring(0,80)}...`, 'dim');
-        } else {
-          output += `\n[Transcrição: áudio processado mas nenhum texto detectado.\n` +
-                    `O reconhecimento de fala do navegador tem limitações com áudio gravado.\n` +
-                    `Para melhor resultado, use Whisper (OpenAI), Azure Speech ou Google STT.]`;
-          log('  Áudio: nenhum texto detectado pela Web Speech API.', 'warntext');
-        }
-        f.content = output;
-      } else {
-        URL.revokeObjectURL(audioUrl);
-        audioCtx.close();
-        f.content = output + '\n[captureStream() não suportado neste navegador.]\n' +
-                    'Para transcrição, use Whisper (OpenAI), Azure Speech ou Google STT.';
-        log('  captureStream() não disponível.', 'warntext');
-      }
-    } catch(speechErr) {
-      audioCtx.close();
-      f.content = output + `\n[Transcrição falhou: ${speechErr.message}]\n` +
-                  'Para transcrição, use Whisper (OpenAI), Azure Speech ou Google STT.';
-      log(`  Web Speech API falhou: ${speechErr.message}`, 'warntext');
-    }
   } catch (e) {
     f.content = `[Erro ao processar áudio ${f.name}: ${e.message}]`;
+    log(`  Erro áudio: ${e.message}`, 'err');
   }
-}
-
-// Converter AudioBuffer para WAV
-function audioBufferToWav(buffer) {
-  const numCh = buffer.numberOfChannels;
-  const sr = buffer.sampleRate;
-  const bd = 16;
-  const bps = bd / 8;
-  const ba = numCh * bps;
-  const ds = buffer.length * ba;
-  const ab = new ArrayBuffer(44 + ds);
-  const v = new DataView(ab);
-  const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-  ws(0, 'RIFF'); v.setUint32(4, 36 + ds, true); ws(8, 'WAVE');
-  ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
-  v.setUint16(22, numCh, true); v.setUint32(24, sr, true);
-  v.setUint32(28, sr * ba, true); v.setUint16(32, ba, true); v.setUint16(34, bd, true);
-  ws(36, 'data'); v.setUint32(40, ds, true);
-  let off = 44;
-  for (let i = 0; i < buffer.length; i++)
-    for (let ch = 0; ch < numCh; ch++) {
-      const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
-      v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true); off += 2;
-    }
-  return new Blob([ab], {type: 'audio/wav'});
 }
 
 /* ============================================================
