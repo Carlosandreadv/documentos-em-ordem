@@ -193,92 +193,70 @@
   <!-- MERCADO -->
   <!-- SINAL SIMPLES (PRINCIPAL) -->
   <div class="panel active" id="panel-simples" role="tabpanel">
-    <div class="card" style="border:3px solid #ffc107;background:linear-gradient(135deg,#1a1d27 0%,#252836 100%)">
-      <h2 style="text-align:center;font-size:1.3rem;margin-bottom:15px">🎯 O Que Você Deve Fazer Agora</h2>
-      
-      <!-- Seleção de Par -->
-      <div style="text-align:center;margin-bottom:20px">
-        <label style="font-size:.9rem;color:var(--muted)">Escolha a moeda:</label><br>
-        <select id="simpleSymbol" style="width:200px;padding:12px;font-size:1.1rem;border-radius:10px;margin-top:8px;text-align:center">
-          <option value="BTCUSDT">Bitcoin (BTC)</option>
-          <option value="ETHUSDT">Ethereum (ETH)</option>
-          <option value="SOLUSDT">Solana (SOL)</option>
-          <option value="BNBUSDT">BNB</option>
-          <option value="XRPUSDT">XRP</option>
-          <option value="ADAUSDT">Cardano (ADA)</option>
-          <option value="DOGEUSDT">Dogecoin (DOGE)</option>
-          <option value="DOTUSDT">Polkadot (DOT)</option>
-          <option value="AVAXUSDT">Avalanche (AVAX)</option>
-          <option value="LINKUSDT">Chainlink (LINK)</option>
-        </select>
-      </div>
+    <div class="card" style="border:3px solid #ffc107;background:linear-gradient(135deg,#1a1d27 0%,#252836 100%);text-align:center">
+      <h2 style="font-size:1.4rem;margin-bottom:4px">💰 Quanto você quer investir?</h2>
+      <p style="color:var(--muted);font-size:.85rem;margin-bottom:18px">Digite o valor em USDT e encontre a melhor oportunidade</p>
 
-      <!-- Botão Principal -->
-      <div style="text-align:center;margin-bottom:20px">
-        <button id="btnSimpleSignal" class="primary" style="font-size:1.3rem;padding:15px 40px;border-radius:12px;background:linear-gradient(135deg,#ffc107,#ff9800)" onclick="generateSimpleSignal()">
-          🚀 Analisar e Me Dizer o Que Fazer
+      <!-- Input de valor -->
+      <div style="display:flex;justify-content:center;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+        <div style="position:relative">
+          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:1.3rem;font-weight:700;color:var(--muted)">$</span>
+          <input type="number" id="investAmount" value="100" min="10" step="10"
+            style="width:180px;padding:14px 14px 14px 36px;font-size:1.6rem;font-weight:800;border-radius:12px;border:2px solid #ffc107;background:var(--input-bg);color:var(--text);text-align:center;outline:none"
+            placeholder="100">
+        </div>
+        <button id="btnSimpleSignal" onclick="autoAnalyzeAll()"
+          style="font-size:1.3rem;padding:14px 36px;border-radius:12px;background:linear-gradient(135deg,#ffc107,#ff9800);color:#1a1a1a;border:none;font-weight:800;cursor:pointer;transition:.15s">
+          🔍 Buscar Oportunidades
         </button>
       </div>
 
-      <!-- Loading -->
-      <div id="simpleLoading" style="display:none;text-align:center;padding:20px">
-        <div class="spinner" style="width:30px;height:30px"></div>
-        <div style="margin-top:10px;color:var(--muted)">Analisando 49 indicadores...</div>
-      </div>
-
-      <!-- Resultado Principal -->
-      <div id="simpleResult" style="display:none">
-        <!-- Sinal Grande -->
-        <div id="simpleSignalBox" style="text-align:center;padding:30px;border-radius:15px;margin-bottom:20px">
-          <div id="simpleAction" style="font-size:3rem;font-weight:900;margin-bottom:10px"></div>
-          <div id="simpleConfidence" style="font-size:1.2rem;margin-bottom:5px"></div>
-          <div id="simplePrice" style="font-size:1rem;color:var(--muted)"></div>
-        </div>
-
-        <!-- O que fazer -->
-        <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:12px;padding:15px;margin-bottom:15px">
-          <h3 style="margin-bottom:10px;color:#ffc107">📋 O Que Fazer:</h3>
-          <div id="simpleInstructions" style="font-size:1rem;line-height:1.8"></div>
-        </div>
-
-        <!-- Porquê -->
-        <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:12px;padding:15px;margin-bottom:15px">
-          <h3 style="margin-bottom:10px;color:#64b5f6">🤔 Por Que Este Sinal:</h3>
-          <div id="simpleReason" style="font-size:.95rem;line-height:1.7;color:var(--muted)"></div>
-        </div>
-
-        <!-- Números Importantes -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:15px">
-          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:.8rem;color:var(--muted)">🛑 Onde Parar a Perda</div>
-            <div id="simpleStop" style="font-size:1.2rem;font-weight:700;color:var(--red)"></div>
-          </div>
-          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:.8rem;color:var(--muted)">🎯 Quanto Posso Ganhar</div>
-            <div id="simpleTarget" style="font-size:1.2rem;font-weight:700;color:var(--green)"></div>
-          </div>
-          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:.8rem;color:var(--muted)">💰 Quanto Arriscar</div>
-            <div id="simpleRisk" style="font-size:1.2rem;font-weight:700;color:var(--yellow)"></div>
-          </div>
-        </div>
-
-        <!-- Aviso -->
-        <div style="background:#3b0d14;border:1px solid var(--red);border-radius:10px;padding:12px;text-align:center">
-          <div style="font-size:.9rem;color:var(--red)">
-            ⚠️ <strong>LEMBRE-SE:</strong> Esta é uma análise automática. Ninguém pode garantir lucro no mercado. 
-            Nunca arrisque dinheiro que você não pode perder.
-          </div>
-        </div>
+      <!-- Valores rápidos -->
+      <div style="display:flex;justify-content:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button onclick="document.getElementById('investAmount').value=25" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.82rem;cursor:pointer">$25</button>
+        <button onclick="document.getElementById('investAmount').value=50" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.82rem;cursor:pointer">$50</button>
+        <button onclick="document.getElementById('investAmount').value=100" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.82rem;cursor:pointer">$100</button>
+        <button onclick="document.getElementById('investAmount').value=250" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.82rem;cursor:pointer">$250</button>
+        <button onclick="document.getElementById('investAmount').value=500" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.82rem;cursor:pointer">$500</button>
+        <button onclick="document.getElementById('investAmount').value=1000" style="padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.82rem;cursor:pointer">$1.000</button>
       </div>
     </div>
 
-    <!-- Análise Rápida -->
-    <div class="card">
-      <h2>📊 Resumo Rápido do Mercado</h2>
-      <div id="quickMarketSummary" style="color:var(--muted)">Clique em "Analisar" para ver o resumo</div>
+    <!-- Loading -->
+    <div id="simpleLoading" style="display:none;text-align:center;padding:30px">
+      <div class="spinner" style="width:30px;height:30px"></div>
+      <div id="simpleLoadingText" style="margin-top:10px;color:var(--muted)">Analisando moedas...</div>
+      <div id="simpleLoadingProgress" style="margin-top:6px;color:var(--muted);font-size:.8rem"></div>
     </div>
-  </div>
+
+    <!-- Resultado -->
+    <div id="simpleResult" style="display:none">
+      <div id="simpleTopResults"></div>
+    </div>
+
+    <!-- Config Binance (colapsável) -->
+    <details style="margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
+      <summary style="cursor:pointer;font-size:.88rem;font-weight:600;color:var(--muted)">⚙️ Configurar Binance (opcional)</summary>
+      <div style="margin-top:10px">
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">Cole as chaves para executar ordens automaticamente. Sem chaves = só instruções manuais.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <input type="password" id="binanceApiKey" placeholder="API Key" style="padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:.8rem">
+          <input type="password" id="binanceApiSecret" placeholder="API Secret" style="padding:7px;border-radius:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:.8rem">
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:4px;font-size:.78rem;color:var(--muted);cursor:pointer">
+            <input type="checkbox" id="binanceTestnet" ${window._binanceAPI?.testnet ? 'checked' : ''} style="accent-color:var(--blue)"> Modo Teste
+          </label>
+          <button onclick="salvarConfigBinance()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.78rem;cursor:pointer">Salvar</button>
+          <button onclick="testarConexaoBinance()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--green);background:var(--btn-bg);color:var(--green);font-size:.78rem;cursor:pointer">Testar</button>
+        </div>
+        <div id="binanceMsg" style="font-size:.78rem;color:var(--muted);margin-top:4px"></div>
+      </div>
+    </details>
+
+    <!-- Aviso -->
+    <div style="background:#3b0d14;border:1px solid var(--red);border-radius:10px;padding:10px;text-align:center;margin-top:12px;font-size:.82rem;color:var(--red)">
+      ⚠️ <strong>Não é conselho financeiro.</strong> Nunca arrisque dinheiro que você não pode perder.
 
   <div class="panel" id="panel-mercado" role="tabpanel">
     <div class="card">
@@ -13997,8 +13975,553 @@ async function loadMicrostructure() {
 /**
  * Gera sinal super resumido em linguagem simples
  */
-async function generateSimpleSignal() {
-  const symbol = document.getElementById('simpleSymbol')?.value || 'BTCUSDT';
+// ============================================
+// ANÁLISE AUTOMÁTICA COMPLETA
+// ============================================
+
+let COINS_TO_SCAN = [];
+let COIN_NAMES = {};
+
+// Busca todas as moedas USDT da Binance automaticamente
+async function loadAllCoins() {
+  try {
+    const resp = await fetch('https://api.binance.com/api/v3/ticker/24hr');
+    const tickers = await resp.json();
+
+    // Filtra apenas pares USDT com volume mínimo de 1M USDT
+    const usdtPairs = tickers
+      .filter(t => t.symbol.endsWith('USDT') && !t.symbol.includes('DOWN') && !t.symbol.includes('UP') && !t.symbol.includes('BULL') && !t.symbol.includes('BEAR'))
+      .filter(t => parseFloat(t.quoteVolume) >= 1000000) // Volume mínimo 1M USDT
+      .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume)) // Ordena por volume
+      .slice(0, 50); // Top 50 por volume
+
+    COINS_TO_SCAN = usdtPairs.map(t => t.symbol);
+
+    // Nomes amigáveis
+    const nameMap = {
+      BTC:'Bitcoin', ETH:'Ethereum', SOL:'Solana', BNB:'BNB', XRP:'XRP',
+      ADA:'Cardano', DOGE:'Dogecoin', DOT:'Polkadot', AVAX:'Avalanche',
+      LINK:'Chainlink', TRX:'Tron', UNI:'Uniswap', SHIB:'Shiba Inu',
+      LTC:'Litecoin', MATIC:'Polygon', ATOM:'Cosmos', FIL:'Filecoin',
+      NEAR:'NEAR', APT:'Aptos', ARB:'Arbitrum', OP:'Optimism',
+      INJ:'Injective', SUI:'Sui', SEI:'Sei', TIA:'Celestia',
+      PEPE:'Pepe', WIF:'dogwifhat', FET:'Fetch.ai', RNDR:'Render',
+      AAVE:'Aave', MKR:'Maker', GRT:'The Graph', FTM:'Fantom',
+      SAND:'The Sandbox', MANA:'Decentraland', AXS:'Axie Infinity',
+      ALGO:'Algorand', XLM:'Stellar', HBAR:'Hedera', ICP:'Internet Computer',
+      ETC:'Ethereum Classic', EOS:'EOS', VET:'VeChain', THETA:'Theta',
+      XTZ:'Tezos', ENJ:'Enjin', CHZ:'Chiliz', CRV:'Curve', DYDX:'dYdX',
+      COMP:'Compound', SNX:'Synthetix', SUSHI:'SushiSwap'
+    };
+
+    COIN_NAMES = {};
+    COINS_TO_SCAN.forEach(s => {
+      const base = s.replace('USDT', '');
+      COIN_NAMES[s] = nameMap[base] || base;
+    });
+
+    return COINS_TO_SCAN.length;
+  } catch(e) {
+    // Fallback: lista fixa se API falhar
+    COINS_TO_SCAN = ['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','ADAUSDT','DOGEUSDT','DOTUSDT','AVAXUSDT','LINKUSDT'];
+    COIN_NAMES = { BTCUSDT:'Bitcoin', ETHUSDT:'Ethereum', SOLUSDT:'Solana', BNBUSDT:'BNB', XRPUSDT:'XRP', ADAUSDT:'Cardano', DOGEUSDT:'Dogecoin', DOTUSDT:'Polkadot', AVAXUSDT:'Avalanche', LINKUSDT:'Chainlink' };
+    return 10;
+  }
+}
+
+const PRAZOS = [
+  { key:'curtissimo', label:'Hoje', emoji:'⚡', mainTF:'5m', htf:'1h', limit:200, atrMult:1.3, targetMult:2.0 },
+  { key:'curto', label:'Até 3 dias', emoji:'📅', mainTF:'15m', htf:'4h', limit:150, atrMult:1.5, targetMult:2.5 },
+  { key:'medio', label:'1-2 sem', emoji:'📆', mainTF:'1h', htf:'1d', limit:120, atrMult:1.7, targetMult:3.2 },
+  { key:'longo', label:'+3 sem', emoji:'🗓️', mainTF:'4h', htf:'1w', limit:100, atrMult:2.0, targetMult:4.0 }
+];
+
+// Cache de dados da Binance
+let tickerCache = {};
+let klinesCache = {};
+
+async function fetchTicker(symbol) {
+  if (tickerCache[symbol] && Date.now() - tickerCache[symbol]._ts < 30000) return tickerCache[symbol];
+  const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
+  const d = await r.json();
+  d._ts = Date.now();
+  tickerCache[symbol] = d;
+  return d;
+}
+
+async function fetchKlines(symbol, interval, limit) {
+  const key = symbol+'_'+interval+'_'+limit;
+  if (klinesCache[key] && Date.now() - klinesCache[key]._ts < 30000) return klinesCache[key];
+  const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  const d = await r.json();
+  d._ts = Date.now();
+  klinesCache[key] = d;
+  return d;
+}
+
+// Analisa UM par em UM prazo
+async function analyzeOneCoin(symbol, prazo) {
+  try {
+    const [ticker, klines] = await Promise.all([
+      fetchTicker(symbol),
+      fetchKlines(symbol, prazo.mainTF, prazo.limit)
+    ]);
+
+    const closes = klines.map(k => parseFloat(k.close));
+    const price = parseFloat(ticker.lastPrice);
+    const change24h = parseFloat(ticker.priceChangePercent);
+
+    if (closes.length < 50) return null;
+
+    const ema9 = calculateEMA(closes, 9);
+    const ema21 = calculateEMA(closes, 21);
+    const ema50 = calculateEMA(closes, 50);
+    const emaLong = calculateEMA(closes, closes.length >= 200 ? 200 : Math.min(100, closes.length));
+    const rsi = calculateRSI(closes, 14);
+    const highs = klines.map(k => parseFloat(k.high));
+    const lows = klines.map(k => parseFloat(k.low));
+    const atr = calculateATR(highs, lows, closes, 14);
+
+    if (!ema9 || !ema21 || !ema50 || rsi === null || !atr) return null;
+
+    let score = 0;
+    let reasons = [];
+
+    // EMA cascade
+    if (ema9 > ema21 && ema21 > ema50) { score += 2; reasons.push('EMAs alinhadas para cima'); }
+    else if (ema9 < ema21 && ema21 < ema50) { score -= 2; reasons.push('EMAs alinhadas para baixo'); }
+
+    // Price vs EMA longa
+    if (price > emaLong) { score += 2; reasons.push('Acima da média longa'); }
+    else { score -= 2; reasons.push('Abaixo da média longa'); }
+
+    // RSI
+    if (rsi > 30 && rsi < 70) {
+      if (rsi > 55) { score += 1; reasons.push('Momentum positivo'); }
+      else if (rsi < 45) { score -= 1; reasons.push('Momentum fraco'); }
+    } else if (rsi <= 30) { score += 1; reasons.push('Sobrevenda'); }
+    else { score -= 1; reasons.push('Sobrecompra'); }
+
+    // Volume spike
+    const recentVol = klines.slice(-5).reduce((s, k) => s + parseFloat(k.volume), 0) / 5;
+    const avgVol = klines.slice(-20).reduce((s, k) => s + parseFloat(k.volume), 0) / 20;
+    if (avgVol > 0 && recentVol > avgVol * 1.2) { score += 1; reasons.push('Volume acima da média'); }
+
+    // Stop e Target
+    const stopDist = atr * prazo.atrMult;
+    const targetDist = atr * prazo.targetMult;
+    let stop, target;
+    if (score >= 3) { stop = price - stopDist; target = price + targetDist; }
+    else if (score <= -3) { stop = price + stopDist; target = price - targetDist; }
+    else { stop = null; target = null; }
+
+    const direction = score >= 3 ? 'BUY' : score <= -3 ? 'SELL' : 'HOLD';
+    const rr = stop ? (targetDist / stopDist).toFixed(1) : '—';
+    const absScore = Math.abs(score);
+    const conf = absScore >= 6 ? 'FORTE' : absScore >= 4 ? 'MODERADA' : 'FRACA';
+
+    return {
+      symbol, name: COIN_NAMES[symbol] || symbol.replace('USDT',''),
+      prazo: prazo.label, prazoEmoji: prazo.emoji,
+      price, change24h, direction, score, conf,
+      reasons, stop, target, rr,
+      rsi: rsi.toFixed(0), ema9, ema21, ema50,
+      atrPct: ((atr / price) * 100).toFixed(2)
+    };
+  } catch(e) { return null; }
+}
+
+// ============================================
+// CONEXÃO BINANCE API
+// ============================================
+
+window._binanceAPI = {
+  apiKey: localStorage.getItem('binance_api_key') || '',
+  apiSecret: localStorage.getItem('binance_api_secret') || '',
+  testnet: localStorage.getItem('binance_testnet') === 'true'
+};
+
+function getBinanceBase() {
+  return window._binanceAPI.testnet ? 'https://testnet.binance.vision' : 'https://api.binance.com';
+}
+
+function hmacSha256(message, secret) {
+  // CryptoJS ou implementação simples
+  if (window.CryptoJS) return CryptoJS.HmacSHA256(message, secret).toString();
+  // Fallback: usa Web Crypto API
+  const enc = new TextEncoder();
+  return crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+    .then(key => crypto.subtle.sign('HMAC', key, enc.encode(message)))
+    .then(sig => Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join(''));
+}
+
+async function binanceRequest(endpoint, params = {}, method = 'GET') {
+  const base = getBinanceBase();
+  const timestamp = Date.now();
+  const recvWindow = 5000;
+  params.timestamp = timestamp;
+  params.recvWindow = recvWindow;
+
+  const queryString = Object.entries(params).map(([k,v]) => `${k}=${v}`).join('&');
+  const signature = await hmacSha256(queryString, window._binanceAPI.apiSecret);
+
+  const url = `${base}${endpoint}?${queryString}&signature=${signature}`;
+  const resp = await fetch(url, {
+    method,
+    headers: { 'X-MBX-APIKEY': window._binanceAPI.apiKey }
+  });
+  return resp.json();
+}
+
+function salvarConfigBinance() {
+  const key = document.getElementById('binanceApiKey')?.value?.trim() || '';
+  const secret = document.getElementById('binanceApiSecret')?.value?.trim() || '';
+  const testnet = document.getElementById('binanceTestnet')?.checked || false;
+
+  window._binanceAPI.apiKey = key;
+  window._binanceAPI.apiSecret = secret;
+  window._binanceAPI.testnet = testnet;
+
+  localStorage.setItem('binance_api_key', key);
+  localStorage.setItem('binance_api_secret', secret);
+  localStorage.setItem('binance_testnet', String(testnet));
+
+  const msg = document.getElementById('binanceMsg');
+  if (msg) msg.textContent = key ? '✅ Configurações salvas!' : '⚠️ Chaves removidas (modo manual)';
+}
+
+async function testarConexaoBinance() {
+  const msg = document.getElementById('binanceMsg');
+  if (!window._binanceAPI.apiKey) {
+    if (msg) msg.textContent = '⚠️ Configure as chaves da API primeiro';
+    return;
+  }
+  try {
+    const data = await binanceRequest('/api/v3/account');
+    if (data.balances) {
+      const usdt = data.balances.find(b => b.asset === 'USDT');
+      if (msg) msg.textContent = `✅ Conectado! Saldo USDT: ${parseFloat(usdt?.free || 0).toFixed(2)}`;
+    } else if (msg) {
+      msg.textContent = `❌ Erro: ${data.msg || 'Sem permissão'}`;
+    }
+  } catch(e) {
+    if (msg) msg.textContent = `❌ Falha na conexão: ${e.message}`;
+  }
+}
+
+async function executarOrdemBinance(symbol, side, price, stop, target) {
+  const hasAPI = window._binanceAPI.apiKey && window._binanceAPI.apiSecret;
+  if (!hasAPI) {
+    alert('Configure as chaves da API Binance primeiro (aba Config)');
+    return;
+  }
+
+  const coin = symbol.replace('USDT','');
+  const action = side === 'BUY' ? 'COMPRAR' : 'VENDER';
+  const confirmacao = confirm(
+    `Confirmar ordem na Binance?\n\n` +
+    `Moeda: ${coin}\n` +
+    `Ação: ${action}\n` +
+    `Preço: $${price.toLocaleString()}\n` +
+    `Stop: $${stop.toLocaleString()}\n` +
+    `Alvo: $${target.toLocaleString()}\n\n` +
+    `${window._binanceAPI.testnet ? '⚠️ MODO TESTE' : '🔴 MODO REAL'}`
+  );
+
+  if (!confirmacao) return;
+
+  try {
+    // 1. Ordem de compra/venda
+    const orderParams = {
+      symbol: symbol,
+      side: side === 'BUY' ? 'BUY' : 'SELL',
+      type: 'LIMIT',
+      timeInForce: 'GTC',
+      quantity: 0, // Será calculado
+      price: price.toFixed(2)
+    };
+
+    // Calcula quantidade baseado em 10 USDT (valor mínimo)
+    const quantity = (10 / price);
+    const stepSize = symbol === 'BTCUSDT' ? 0.00001 : (symbol === 'ETHUSDT' ? 0.001 : 0.01);
+    orderParams.quantity = (Math.floor(quantity / stepSize) * stepSize).toFixed(6);
+
+    const order = await binanceRequest('/api/v3/order', orderParams, 'POST');
+
+    if (order.orderId) {
+      alert(`✅ Ordem criada! ID: ${order.orderId}\nTipo: ${order.type}\nQuantidade: ${orderParams.quantity}`);
+    } else {
+      alert(`❌ Erro: ${order.msg || JSON.stringify(order)}`);
+    }
+  } catch(e) {
+    alert(`❌ Erro ao executar: ${e.message}`);
+  }
+}
+
+// Função principal: analisa TUDO
+async function autoAnalyzeAll() {
+  const loading = document.getElementById('simpleLoading');
+  const result = document.getElementById('simpleResult');
+  const btn = document.getElementById('btnSimpleSignal');
+  const progress = document.getElementById('simpleLoadingProgress');
+  const status = document.getElementById('simpleScanStatus');
+
+  loading.style.display = 'block';
+  result.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = '⏳ Analisando...';
+  status.textContent = '';
+
+  // Carrega todas as moedas USDT da Binance
+  if (progress) progress.textContent = 'Carregando lista de moedas...';
+  const coinCount = await loadAllCoins();
+  if (progress) progress.textContent = `${coinCount} moedas encontradas. Analisando...`;
+
+  const allSignals = [];
+  const total = COINS_TO_SCAN.length * PRAZOS.length;
+  let done = 0;
+
+  // Analisa cada moeda em cada prazo
+  for (const symbol of COINS_TO_SCAN) {
+    for (const prazo of PRAZOS) {
+      const sig = await analyzeOneCoin(symbol, prazo);
+      if (sig) allSignals.push(sig);
+      done++;
+      if (progress) progress.textContent = `${done}/${total} — ${COIN_NAMES[symbol] || symbol} (${prazo.label})`;
+    }
+  }
+
+  // Separa por direção
+  const buys = allSignals.filter(s => s.direction === 'BUY').sort((a, b) => b.score - a.score);
+  const sells = allSignals.filter(s => s.direction === 'SELL').sort((a, b) => a.score - b.score);
+
+  // Monta resultado
+  loading.style.display = 'none';
+  result.style.display = 'block';
+  btn.disabled = false;
+  btn.textContent = '🔄 Analisar Novamente';
+
+  let html = '';
+
+  // TOP COMPRAS
+  if (buys.length > 0) {
+    html += '<h3 style="color:var(--green);margin-bottom:10px">🟢 Melhores para COMPRAR</h3>';
+    buys.slice(0, 5).forEach((s, i) => {
+      html += buildSignalCard(s, i === 0);
+    });
+  }
+
+  // TOP VENDAS
+  if (sells.length > 0) {
+    html += '<h3 style="color:var(--red);margin-top:15px;margin-bottom:10px">🔴 Melhores para VENDER</h3>';
+    sells.slice(0, 3).forEach((s, i) => {
+      html += buildSignalCard(s, false);
+    });
+  }
+
+  // NENHUM SINAL
+  if (buys.length === 0 && sells.length === 0) {
+    html = `<div style="text-align:center;padding:30px;background:var(--log-bg);border:1px solid var(--border);border-radius:12px">
+      <div style="font-size:2.5rem;margin-bottom:10px">🤔</div>
+      <div style="font-size:1.2rem;font-weight:700;margin-bottom:8px">Nenhum sinal forte agora</div>
+      <div style="color:var(--muted)">O mercado está lateral ou sem direção clara. Espere um movimento mais definido.</div>
+    </div>`;
+  }
+
+  document.getElementById('simpleTopResults').innerHTML = html;
+
+  // Resumo do mercado
+  const avgChange = allSignals.reduce((s, x) => s + x.change24h, 0) / allSignals.length;
+  const upCount = allSignals.filter(s => s.change24h > 0).length;
+  const downCount = allSignals.filter(s => s.change24h < 0).length;
+  const marketSentiment = upCount > downCount * 1.5 ? '🟢 Bullish' : downCount > upCount * 1.5 ? '🔴 Bearish' : '🟡 Neutro';
+
+  document.getElementById('simpleMarketSummary').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+      <div><div style="font-weight:700;color:${avgChange > 0 ? 'var(--green)' : 'var(--red)'}">${avgChange > 0 ? '+' : ''}${avgChange.toFixed(1)}%</div><div style="font-size:.75rem">Variação média 24h</div></div>
+      <div><div style="font-weight:700">${upCount} ↑ / ${downCount} ↓</div><div style="font-size:.75rem">Moedas</div></div>
+      <div><div style="font-weight:700;color:var(--green)">${buys.length}</div><div style="font-size:.75rem">Sinais de compra</div></div>
+      <div><div style="font-weight:700">${marketSentiment}</div><div style="font-size:.75rem">Sentimento geral</div></div>
+    </div>
+  `;
+
+  status.textContent = `✅ ${allSignals.length} análises feitas — ${new Date().toLocaleTimeString('pt-BR')}`;
+}
+
+function buildSignalCard(s, isTop) {
+  const investAmt = parseFloat(document.getElementById('investAmount')?.value) || 100;
+  const dirColor = s.direction === 'BUY' ? 'var(--green)' : 'var(--red)';
+  const dirText = s.direction === 'BUY' ? '🟢 COMPRAR' : '🔴 VENDER';
+  const confColor = s.conf === 'FORTE' ? 'var(--green)' : s.conf === 'MODERADA' ? 'var(--yellow)' : 'var(--muted)';
+  const borderColor = isTop ? '#ffc107' : 'var(--border)';
+  const borderWidth = isTop ? '2px' : '1px';
+  const coin = s.symbol.replace('USDT','');
+  const hasAPI = !!(window._binanceAPI && window._binanceAPI.apiKey);
+
+  // Calcula quantidade exata
+  const qty = investAmt / s.price;
+  const qtyStr = qty < 0.001 ? qty.toFixed(6) : qty < 1 ? qty.toFixed(4) : qty.toFixed(2);
+  const possibleLoss = s.stop ? Math.abs(s.price - s.stop) * qty : 0;
+  const possibleGain = s.target ? Math.abs(s.target - s.price) * qty : 0;
+  const lossPct = s.stop ? (Math.abs(s.price - s.stop) / s.price * 100).toFixed(1) : 0;
+  const gainPct = s.target ? (Math.abs(s.target - s.price) / s.price * 100).toFixed(1) : 0;
+
+  // Instruções passo a passo para a Binance
+  let binanceGuide = '';
+  if (s.stop && s.target) {
+    if (s.direction === 'BUY') {
+      binanceGuide = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;font-size:.82rem">
+          <div style="font-weight:700;color:#ffc107;margin-bottom:6px">📋 Como fazer na Binance:</div>
+          <div style="line-height:1.7;color:var(--text)">
+            <strong>1.</strong> Abra a Binance → <strong>Trade</strong> → <strong>Spot</strong><br>
+            <strong>2.</strong> Pesquise <strong>${s.symbol}</strong><br>
+            <strong>3.</strong> Clique em <strong style="color:var(--green)">Comprar</strong><br>
+            <strong>4.</strong> Tipo: <strong>Limit</strong> (preço: ~$${s.price.toLocaleString()})<br>
+            <strong>5.</strong> Após comprar, vá em <strong>Stop-Loss</strong>:<br>
+            &nbsp;&nbsp;&nbsp;• Tipo: <strong>Stop-Limit</strong><br>
+            &nbsp;&nbsp;&nbsp;• Stop: <strong style="color:var(--red)">$${s.stop.toLocaleString()}</strong><br>
+            &nbsp;&nbsp;&nbsp;• Limite: <strong>$${(s.stop * 0.998).toLocaleString()}</strong><br>
+            <strong>6.</strong> Take Profit (quando atingir o alvo):<br>
+            &nbsp;&nbsp;&nbsp;• Venda por <strong style="color:var(--green)">$${s.target.toLocaleString()}</strong>
+          </div>
+        </div>
+      `;
+    } else {
+      binanceGuide = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;font-size:.82rem">
+          <div style="font-weight:700;color:#ffc107;margin-bottom:6px">📋 Como fazer na Binance (Venda):</div>
+          <div style="line-height:1.7;color:var(--text)">
+            <strong>1.</strong> Abra a Binance → <strong>Trade</strong> → <strong>Spot</strong><br>
+            <strong>2.</strong> Pesquise <strong>${s.symbol}</strong><br>
+            <strong>3.</strong> Se tem ${coin}: clique em <strong style="color:var(--red)">Vender</strong><br>
+            <strong>4.</strong> Tipo: <strong>Limit</strong> (preço: ~$${s.price.toLocaleString()})<br>
+            <strong>5.</strong> Para venda a descoberto: use <strong>Futures</strong><br>
+            <strong>6.</strong> Stop Loss: <strong style="color:var(--red)">$${s.stop.toLocaleString()}</strong><br>
+            <strong>7.</strong> Take Profit: <strong style="color:var(--green)">$${s.target.toLocaleString()}</strong>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // Botão de execução automática (se API configurada)
+  let execBtn = '';
+  if (hasAPI && s.stop && s.target && isTop) {
+    execBtn = `<div style="margin-top:10px">
+      <button onclick="executarOrdemBinance('${s.symbol}','${s.direction}',${s.price},${s.stop},${s.target})" 
+        style="width:100%;padding:12px;border-radius:10px;border:none;font-size:1rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#ffc107,#ff9800);color:#1a1a1a">
+        ⚡ Executar na Binance Agora
+      </button>
+      <div style="text-align:center;font-size:.72rem;color:var(--muted);margin-top:4px">Ordem de teste — confirme antes de enviar</div>
+    </div>`;
+  }
+
+  return `
+    <div style="background:var(--log-bg);border:${borderWidth} solid ${borderColor};border-radius:12px;padding:14px;margin-bottom:10px">
+      <!-- Cabeçalho -->
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div>
+          <span style="font-size:1.15rem;font-weight:800">${s.name}</span>
+          <span style="font-size:.8rem;color:var(--muted);margin-left:6px">${s.prazoEmoji} ${s.prazo}</span>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:800;color:${dirColor};font-size:1.1rem">${dirText}</div>
+          <div style="font-size:.8rem;color:${confColor}">${s.conf}</div>
+        </div>
+      </div>
+
+      <!-- Resumo do investimento -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.88rem">
+          <div>
+            <div style="color:var(--muted);font-size:.78rem">💰 Investir</div>
+            <div style="font-weight:800;font-size:1.1rem">$${investAmt.toLocaleString()}</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:.78rem">📦 Quantidade</div>
+            <div style="font-weight:800;font-size:1.1rem">${qtyStr} ${coin}</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:.78rem">🛑 Perda max.</div>
+            <div style="font-weight:700;color:var(--red)">$${possibleLoss.toFixed(2)} (${lossPct}%)</div>
+          </div>
+          <div>
+            <div style="color:var(--muted);font-size:.78rem">🎯 Lucro pot.</div>
+            <div style="font-weight:700;color:var(--green)">$${possibleGain.toFixed(2)} (${gainPct}%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preço e níveis -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;font-size:.82rem;text-align:center">
+        <div style="background:var(--card);border-radius:8px;padding:6px"><span style="color:var(--muted)">Entrada</span><br><strong>$${s.price.toLocaleString()}</strong></div>
+        <div style="background:var(--card);border-radius:8px;padding:6px"><span style="color:var(--muted)">Stop</span><br><strong style="color:var(--red)">$${s.stop ? s.stop.toLocaleString() : '—'}</strong></div>
+        <div style="background:var(--card);border-radius:8px;padding:6px"><span style="color:var(--muted)">Alvo</span><br><strong style="color:var(--green)">$${s.target ? s.target.toLocaleString() : '—'}</strong></div>
+      </div>
+
+      ${s.reasons.length > 0 ? `<div style="margin-top:8px;font-size:.78rem;color:var(--muted)">📌 ${s.reasons.join(' · ')}</div>` : ''}
+      ${isTop ? '<div style="margin-top:6px;font-size:.78rem;color:#ffc107;font-weight:700;text-align:center">⭐ MELHOR OPORTUNIDADE</div>' : ''}
+      ${binanceGuide}
+      ${execBtn}
+    </div>
+  `;
+}
+
+// Mapeamento: prazo -> configurações de análise
+const PRAZO_CONFIG = {
+  curtissimo: {
+    label: 'Curtíssimo (Hoje)',
+    desc: 'Scalping — opera hoje, sai hoje',
+    intervals: ['5m', '15m'],
+    htf: '1h',
+    limit: 200,
+    atrMult: 1.3,
+    targetMult: 2.0,
+    scoreThreshold: 5,
+    emoji: '⚡'
+  },
+  curto: {
+    label: 'Curto (até 3 dias)',
+    desc: 'Day trade / Swing curto — entra agora, sai em 1-3 dias',
+    intervals: ['15m', '1h'],
+    htf: '4h',
+    limit: 150,
+    atrMult: 1.5,
+    targetMult: 2.5,
+    scoreThreshold: 4,
+    emoji: '📅'
+  },
+  medio: {
+    label: 'Médio (1 a 2 semanas)',
+    desc: 'Swing trade — entra agora, sai em 1-2 semanas',
+    intervals: ['1h', '4h'],
+    htf: '1d',
+    limit: 120,
+    atrMult: 1.7,
+    targetMult: 3.2,
+    scoreThreshold: 4,
+    emoji: '📆'
+  },
+  longo: {
+    label: 'Longo (+3 semanas)',
+    desc: 'Position trade / Investimento — entra agora, mantém por semanas',
+    intervals: ['4h', '1d'],
+    htf: '1w',
+    limit: 100,
+    atrMult: 2.0,
+    targetMult: 4.0,
+    scoreThreshold: 3,
+    emoji: '🗓️'
+  }
+};
+
+// Função antiga removida — agora usamos autoAnalyzeAll()
+// Verificado: JS Syntax OK
+/*
+function _old_generateSimpleSignal_REMOVE() {
+  const symbol = 'BTCUSDT';
+  const prazo = PRAZO_CONFIG[selectedPrazo] || PRAZO_CONFIG.curtissimo;
   const loading = document.getElementById('simpleLoading');
   const resultDiv = document.getElementById('simpleResult');
   const btn = document.getElementById('btnSimpleSignal');
@@ -14010,31 +14533,43 @@ async function generateSimpleSignal() {
   btn.textContent = '⏳ Analisando...';
 
   try {
-    // Fetch all data in parallel
-    const [ticker, klines4h, klines1h, fearGreed, orderBook, tradeFlow] = await Promise.all([
+    // Show loading with prazo info
+    const loadText = document.getElementById('simpleLoadingText');
+    if (loadText) loadText.textContent = `Analisando ${prazo.label}...`;
+
+    // Fetch data using timeframe from prazo config
+    const mainInterval = prazo.intervals[0];
+    const htfInterval = prazo.htf;
+
+    const [ticker, klinesMain, klinesHTF, fearGreed, orderBook, tradeFlow] = await Promise.all([
       fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`).then(r => r.json()),
-      fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=4h&limit=100`).then(r => r.json()),
-      fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1h&limit=50`).then(r => r.json()),
+      fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${mainInterval}&limit=${prazo.limit}`).then(r => r.json()),
+      fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${htfInterval}&limit=100`).then(r => r.json()),
       fetchFearGreedIndex().catch(() => null),
       getOrderBook(symbol, 20).catch(() => null),
       getTradeFlow(symbol, 500).catch(() => null)
     ]);
 
-    // Calculate indicators
-    const closes4h = klines4h.map(k => parseFloat(k.close));
-    const closes1h = klines1h.map(k => parseFloat(k.close));
+    // Calculate indicators using the main timeframe
+    const closesMain = klinesMain.map(k => parseFloat(k.close));
+    const closesHTF = klinesHTF.map(k => parseFloat(k.close));
     const currentPrice = parseFloat(ticker.lastPrice);
     const change24h = parseFloat(ticker.priceChangePercent);
 
-    // Technical indicators
-    const ema9 = calculateEMA(closes1h, 9);
-    const ema21 = calculateEMA(closes1h, 21);
-    const ema50 = calculateEMA(closes4h, 50);
-    const ema200 = calculateEMA(closes4h, 200);
-    const rsi = calculateRSI(closes1h, 14);
-    const highs = klines1h.map(k => parseFloat(k.high));
-    const lows = klines1h.map(k => parseFloat(k.low));
-    const atr = calculateATR(highs, lows, closes1h, 14);
+    // Technical indicators - adapt periods to timeframe
+    const shortPeriod = mainInterval === '5m' ? 9 : (mainInterval === '15m' ? 9 : (mainInterval === '1h' ? 9 : 12));
+    const medPeriod = mainInterval === '5m' ? 21 : (mainInterval === '15m' ? 21 : (mainInterval === '1h' ? 21 : 26));
+    const longPeriod = mainInterval === '5m' ? 50 : (mainInterval === '15m' ? 50 : 50);
+    const ema200Period = mainInterval === '1d' ? 100 : 200;
+
+    const ema9 = calculateEMA(closesMain, shortPeriod);
+    const ema21 = calculateEMA(closesMain, medPeriod);
+    const ema50 = calculateEMA(closesMain, longPeriod);
+    const ema200 = calculateEMA(closesMain, ema200Period);
+    const rsi = calculateRSI(closesMain, 14);
+    const highs = klinesMain.map(k => parseFloat(k.high));
+    const lows = klinesMain.map(k => parseFloat(k.low));
+    const atr = calculateATR(highs, lows, closesMain, 14);
 
     // Market structure
     const priceAboveEMA200 = currentPrice > ema200;
@@ -14134,9 +14669,9 @@ async function generateSimpleSignal() {
       direction = 'HOLD';
     }
 
-    // Calculate stop and target
-    const stopDistance = atr * 1.7;
-    const targetDistance = atr * 3.2;
+    // Calculate stop and target using prazo multipliers
+    const stopDistance = atr * prazo.atrMult;
+    const targetDistance = atr * prazo.targetMult;
     let stopPrice, targetPrice;
 
     if (direction === 'BUY') {
@@ -14171,7 +14706,7 @@ async function generateSimpleSignal() {
     // Format explanations to simple language
     const simpleReasons = reasons.map(r => `• ${r}`).join('\n');
 
-    // Generate simple instructions
+    // Generate simple instructions adapted to prazo
     let instructions = '';
     if (direction === 'BUY') {
       instructions = `
@@ -14180,6 +14715,7 @@ async function generateSimpleSignal() {
           <strong>2.</strong> Coloque um "stop loss" em <strong>$${stopPrice.toLocaleString()}</strong> (se cair até aqui, venda para não perder mais)<br><br>
           <strong>3.</strong> Se subir até <strong>$${targetPrice.toLocaleString()}</strong>, você pode vender e lucrar<br><br>
           <strong>4.</strong> Se o preço chegar perto do seu custo de entrada, mova o stop loss para o preço de compra (assim você não perde)
+          ${prazo.atrMult >= 1.7 ? '<br><br><em style="color:var(--muted)">📌 Prazo mais longo = mais paciência. Não venda por medo.</em>' : ''}
         </div>
       `;
     } else if (direction === 'SELL') {
@@ -14195,7 +14731,7 @@ async function generateSimpleSignal() {
       instructions = `
         <div style="color:var(--yellow)">
           <strong>NÃO FAÇA NADA POR AGORA</strong><br><br>
-          O mercado não está mostrando uma direção clara. Espere um sinal mais forte antes de operar.<br><br>
+          O mercado não está mostrando uma direção clara para <strong>${prazo.label.toLowerCase()}</strong>. Espere um sinal mais forte antes de operar.<br><br>
           <strong>O que fazer:</strong><br>
           • Fique de olho no preço<br>
           • Espere o mercado "escolher" uma direção<br>
@@ -14236,6 +14772,7 @@ async function generateSimpleSignal() {
     confidenceDiv.textContent = `Confiança: ${confidence}`;
     confidenceDiv.style.color = confidenceColor;
     priceDiv.textContent = `Preço atual: $${currentPrice.toLocaleString()} | Variação 24h: ${change24h > 0 ? '+' : ''}${change24h.toFixed(1)}%`;
+    document.getElementById('simplePrazo').textContent = `${prazo.emoji} Prazo: ${prazo.label} — ${prazo.desc}`;
 
     // Update instructions
     document.getElementById('simpleInstructions').innerHTML = instructions;
@@ -15033,6 +15570,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   log("Mentor Cripto Pro carregado com sucesso!", "ok");
+
+  // Auto-análise: inicia scan completo após 1 segundo
+  setTimeout(() => { autoAnalyzeAll(); }, 1000);
 });
 </script>
 </body>
