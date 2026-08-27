@@ -148,9 +148,63 @@
     .pos-pnl{font-weight:700;font-size:.9rem}
     .pos-time{font-size:.72rem;color:var(--muted)}
     .pos-details{display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:.78rem;margin-top:4px}
+    /* ===== SIDEBAR OVERLAY ===== */
+    .sidebar-overlay{position:fixed;top:0;left:0;width:260px;height:100vh;background:var(--card);border-right:1px solid var(--border);z-index:9998;display:flex;flex-direction:column;transition:transform .3s ease;overflow-y:auto}
+    .sidebar-overlay.hidden{transform:translateX(-260px)}
+    .sidebar-header{padding:16px;border-bottom:1px solid var(--border)}
+    .sidebar-header h1{font-size:1.15rem;background:linear-gradient(135deg,var(--blue),var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .sidebar-header p{font-size:.68rem;color:var(--muted);margin-top:2px}
+    .sidebar-nav{flex:1;padding:8px 0;overflow-y:auto}
+    .sidebar-section{padding:12px 16px 5px;font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+    .sidebar-item{display:flex;align-items:center;gap:9px;padding:8px 16px;color:var(--muted);cursor:pointer;transition:.15s;font-size:.8rem;border-left:3px solid transparent}
+    .sidebar-item:hover{background:rgba(41,121,255,.08);color:var(--text)}
+    .sidebar-item.active{background:rgba(41,121,255,.12);color:var(--blue);border-left-color:var(--blue);font-weight:600}
+    .sidebar-item .si{font-size:.95rem;width:20px;text-align:center}
+    .sidebar-toggle{position:fixed;top:10px;left:10px;z-index:9999;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:1rem;transition:.15s}
+    .sidebar-toggle:hover{background:var(--btn-hover)}
+    .sidebar-backdrop{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9997}
+    .sidebar-backdrop.show{display:block}
+    @media(min-width:901px){.container{margin-left:260px!important;padding-left:20px}.sidebar-overlay{display:none!important}.sidebar-toggle{display:none!important}.sidebar-backdrop{display:none!important}}
+    @media(max-width:900px){.tabs{display:none!important}}
   </style>
 </head>
 <body>
+<!-- SIDEBAR TOGGLE (mobile) -->
+<button class="sidebar-toggle" id="sidebarToggle" title="Menu">☰</button>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay">
+  <div class="sidebar-header"><h1>💎 CryptoMaster</h1><p>Análise Completa</p></div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section">🎯 Principal</div>
+    <div class="sidebar-item active" data-panel="simples"><span class="si">🎯</span>Meu Sinal</div>
+    <div class="sidebar-item" data-panel="mercado"><span class="si">📡</span>Mercado</div>
+    <div class="sidebar-item" data-panel="melhores"><span class="si">⭐</span>Melhores Agora</div>
+    <div class="sidebar-item" data-panel="moeda"><span class="si">🔎</span>Analisar Moeda</div>
+    <div class="sidebar-item" data-panel="movers"><span class="si">🚀</span>Top Movers</div>
+    <div class="sidebar-section">📊 Análise</div>
+    <div class="sidebar-item" data-panel="patterns"><span class="si">🎯</span>Padrões</div>
+    <div class="sidebar-item" data-panel="advanced"><span class="si">🔬</span>Análise Avançada</div>
+    <div class="sidebar-item" data-panel="backtest"><span class="si">🧪</span>Backtest</div>
+    <div class="sidebar-item" data-panel="otimizacao"><span class="si">⚡</span>Otimizar</div>
+    <div class="sidebar-item" data-panel="calculadora"><span class="si">🧮</span>Calculadora</div>
+    <div class="sidebar-item" data-panel="realtime"><span class="si">⚡</span>Tempo Real</div>
+    <div class="sidebar-section">💼 Gestão</div>
+    <div class="sidebar-item" data-panel="testar"><span class="si">🧪</span>Testar Ideia</div>
+    <div class="sidebar-item" data-panel="resultados"><span class="si">📊</span>Resultados</div>
+    <div class="sidebar-item" data-panel="capital"><span class="si">💰</span>Teste Capital</div>
+    <div class="sidebar-item" data-panel="journal"><span class="si">📓</span>Journal</div>
+    <div class="sidebar-item" data-panel="risk"><span class="si">🛡️</span>Gestão Risco</div>
+    <div class="sidebar-item" data-panel="execution"><span class="si">⚡</span>Execução</div>
+    <div class="sidebar-item" data-panel="onchain"><span class="si">🔗</span>On-Chain</div>
+    <div class="sidebar-section">⚙️ Sistema</div>
+    <div class="sidebar-item" data-panel="historico"><span class="si">📜</span>Histórico</div>
+    <div class="sidebar-item" data-panel="config"><span class="si">⚙️</span>Configurações</div>
+    <div class="sidebar-item" data-panel="tutorial"><span class="si">📚</span>Tutorial</div>
+    <div class="sidebar-item" data-panel="diagnostico"><span class="si">🔍</span>Diagnóstico</div>
+    <div class="sidebar-item" data-panel="extras"><span class="si">📊</span>Extras</div>
+  </nav>
+</div>
 <div class="container">
   <header>
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -15574,6 +15628,55 @@ document.addEventListener("DOMContentLoaded", () => {
   // Auto-análise: inicia scan completo após 1 segundo
   setTimeout(() => { autoAnalyzeAll(); }, 1000);
 });
+
+// ============================================
+// SIDEBAR NAVIGATION
+// ============================================
+(function(){
+  const sidebar=document.getElementById('sidebarOverlay');
+  const toggle=document.getElementById('sidebarToggle');
+  const backdrop=document.getElementById('sidebarBackdrop');
+  const items=document.querySelectorAll('.sidebar-item[data-panel]');
+
+  function switchPanel(panel){
+    // Trigger tab click
+    const tab=document.querySelector(`.tab[data-panel="${panel}"]`);
+    if(tab) tab.click();
+    // Update sidebar active
+    items.forEach(i=>i.classList.toggle('active',i.dataset.panel===panel));
+    // Close sidebar on mobile
+    if(window.innerWidth<=900){sidebar.classList.add('hidden');backdrop.classList.remove('show');}
+  }
+
+  items.forEach(i=>i.addEventListener('click',()=>switchPanel(i.dataset.panel)));
+
+  // Observe tab changes to sync sidebar
+  const observer=new MutationObserver(()=>{
+    const active=document.querySelector('.panel.active');
+    if(active){
+      const panel=active.id.replace('panel-','');
+      items.forEach(i=>i.classList.toggle('active',i.dataset.panel===panel));
+    }
+  });
+  document.querySelectorAll('.panel').forEach(p=>observer.observe(p,{attributes:true,attributeFilter:['class']}));
+
+  // Toggle sidebar
+  toggle?.addEventListener('click',()=>{
+    sidebar.classList.toggle('hidden');
+    backdrop.classList.toggle('show',!sidebar.classList.contains('hidden'));
+  });
+  backdrop?.addEventListener('click',()=>{
+    sidebar.classList.add('hidden');backdrop.classList.remove('show');
+  });
+
+  // Auto-open on desktop
+  if(window.innerWidth>900) sidebar.classList.remove('hidden');
+  else sidebar.classList.add('hidden');
+
+  window.addEventListener('resize',()=>{
+    if(window.innerWidth>900){sidebar.classList.remove('hidden');backdrop.classList.remove('show');}
+  });
+})();
 </script>
 </body>
 </html>
