@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="theme-color" content="#0f1117" />
+  <meta name="description" content="CryptoMaster - Análise completa de criptomoedas com sinais de compra e venda" />
   <title>CryptoMaster Consolidated — Análise Completa</title>
   <style>
     :root {
@@ -231,6 +234,14 @@
             <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:1.3rem;font-weight:700;color:var(--muted)">$</span>
             <input type="number" id="investAmount" value="100" min="10" step="10" style="width:180px;padding:14px 14px 14px 36px;font-size:1.6rem;font-weight:800;border-radius:12px;border:2px solid #ffc107;background:var(--input-bg);color:var(--text);text-align:center;outline:none" placeholder="100">
           </div>
+          <select id="searchTimeframe" style="padding:12px 16px;font-size:1.1rem;font-weight:700;border-radius:12px;border:2px solid #ffc107;background:var(--input-bg);color:var(--text);cursor:pointer;outline:none">
+            <option value="5m">5 minutos</option>
+            <option value="15m">15 minutos</option>
+            <option value="1h" selected>1 hora</option>
+            <option value="2h">2 horas</option>
+            <option value="4h">4 horas</option>
+            <option value="1d">1 dia</option>
+          </select>
           <button id="btnSimpleSignal" style="font-size:1.3rem;padding:14px 36px;border-radius:12px;background:linear-gradient(135deg,#ffc107,#ff9800);color:#1a1a1a;border:none;font-weight:800;cursor:pointer;transition:.15s">🔍 Buscar Oportunidades</button>
         </div>
         <div style="display:flex;justify-content:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
@@ -529,15 +540,120 @@
 
     <!-- ===== JOURNAL ===== -->
     <div class="page" id="page-journal">
-      <div class="card">
+      <div class="card" style="border:2px solid var(--purple)">
         <h2>📓 Trading Journal</h2>
-        <p style="color:var(--muted);font-size:.84rem;margin-bottom:10px">Registre insights e aprendizados de cada trade.</p>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:12px">Registre cada trade com contexto. O journal é onde o trader realmente evolui.</p>
+        
+        <!-- Linha 1: Par + Lado + Setup -->
         <div class="form-row">
-          <label>Par:</label><input type="text" id="journalSymbol" style="width:110px" />
-          <label>Nota:</label><input type="text" id="journalNote" style="flex:1;min-width:200px" placeholder="O que aprendi com este trade..." />
-          <button class="success" id="btnAddJournal">📝 Adicionar</button>
+          <label>Par:</label>
+          <input type="text" id="journalSymbol" placeholder="BTCUSDT" style="width:120px" />
+          <label>Lado:</label>
+          <select id="journalSide" style="width:90px">
+            <option value="buy">🟢 Compra</option>
+            <option value="sell">🔴 Venda</option>
+          </select>
+          <label>Setup:</label>
+          <select id="journalSetup" style="width:140px">
+            <option value="pullback">Pullback EMA</option>
+            <option value="breakout">Breakout</option>
+            <option value="reversal">Reversão</option>
+            <option value="continuation">Continuação</option>
+            <option value="scalp">Scalp</option>
+            <option value="outro">Outro</option>
+          </select>
         </div>
-        <div id="journalList"><div class="empty">Nenhuma nota ainda</div></div>
+
+        <!-- Linha 2: Entrada + Stop + Alvo -->
+        <div class="form-row">
+          <label>Entrada:</label><input type="number" id="journalEntry" step="any" placeholder="0.00" style="width:110px" />
+          <label>Stop:</label><input type="number" id="journalStop" step="any" placeholder="0.00" style="width:110px" />
+          <label>Alvo:</label><input type="number" id="journalTarget" step="any" placeholder="0.00" style="width:110px" />
+          <label>Score:</label><input type="number" id="journalScore" min="1" max="12" value="6" style="width:60px" />
+        </div>
+
+        <!-- Linha 3: Emoção + Confiança -->
+        <div class="form-row">
+          <label>Como me sinto:</label>
+          <div id="emotionPicker" style="display:flex;gap:4px;flex-wrap:wrap">
+            <button type="button" onclick="pickEmotion(this,'calmo')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">😌 Calmo</button>
+            <button type="button" onclick="pickEmotion(this,'confiante')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">💪 Confiante</button>
+            <button type="button" onclick="pickEmotion(this,'ansioso')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">😰 Ansioso</button>
+            <button type="button" onclick="pickEmotion(this,'enganado')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">😤 Enganado</button>
+            <button type="button" onclick="pickEmotion(this,'fomo')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">🔥 FOMO</button>
+            <button type="button" onclick="pickEmotion(this,'medo')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">😨 Medo</button>
+            <button type="button" onclick="pickEmotion(this,'ganancioso')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">贪婪 Ganancioso</button>
+            <button type="button" onclick="pickEmotion(this,'neutro')" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">😐 Neutro</button>
+          </div>
+          <input type="hidden" id="journalEmotion" value="" />
+        </div>
+
+        <!-- Linha 4: Confiança no trade -->
+        <div class="form-row">
+          <label>Confiança:</label>
+          <div id="confidencePicker" style="display:flex;gap:4px">
+            <button type="button" onclick="pickConfidence(this,1)" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">1 - Baixa</button>
+            <button type="button" onclick="pickConfidence(this,2)" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">2 - Média</button>
+            <button type="button" onclick="pickConfidence(this,3)" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">3 - Alta</button>
+            <button type="button" onclick="pickConfidence(this,4)" style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.8rem;cursor:pointer">4 - Muito Alta</button>
+          </div>
+          <input type="hidden" id="journalConfidence" value="" />
+        </div>
+
+        <!-- Linha 5: Porquê + Lição -->
+        <div style="margin:8px 0">
+          <label style="font-size:.82rem;color:var(--muted);display:block;margin-bottom:4px">📝 Por que estou entrando neste trade?</label>
+          <textarea id="journalReason" rows="2" style="width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px;font-size:.84rem;resize:vertical" placeholder="Ex: BTC quebrou resistência com volume acima da média. Multi-TF confirma alta. RSI em zona favorável."></textarea>
+        </div>
+        <div style="margin:8px 0">
+          <label style="font-size:.82rem;color:var(--muted);display:block;margin-bottom:4px">💡 Lição aprendida (preencha DEPOIS de fechar)</label>
+          <textarea id="journalLesson" rows="2" style="width:100%;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px;font-size:.84rem;resize:vertical" placeholder="Ex: Deveria ter esperado o pullback. Entrei com medo de perder a oportunidade (FOMO)."></textarea>
+        </div>
+
+        <!-- Linha 6: Resultado (só quando fechar) -->
+        <div class="form-row">
+          <label>Resultado:</label>
+          <select id="journalResult" style="width:120px">
+            <option value="">⏳ Aberto</option>
+            <option value="ACERTOU">✅ Acertou</option>
+            <option value="ERROU">❌ Errou</option>
+            <option value="EMPATE">➖ Empate</option>
+          </select>
+          <label>P&L ($):</label><input type="number" id="journalPnL" step="any" placeholder="0.00" style="width:100px" />
+        </div>
+
+        <div class="btn-row" style="margin-top:10px">
+          <button class="success" id="btnAddJournal" style="font-size:.9rem;padding:10px 20px">📝 Salvar no Journal</button>
+          <button id="btnExportJournal" style="font-size:.84rem">📥 Exportar CSV</button>
+        </div>
+        <div id="journalMsg" style="font-size:.84rem;color:var(--muted);margin-top:4px"></div>
+      </div>
+
+      <!-- Stats do Journal -->
+      <div class="card">
+        <h2>📊 Estatísticas do Journal</h2>
+        <div class="stats-grid" id="journalStats">
+          <div class="stat-box"><div class="value" id="jTotal">0</div><div class="label">Total</div></div>
+          <div class="stat-box"><div class="value" id="jWins">0</div><div class="label">Acertos</div></div>
+          <div class="stat-box"><div class="value" id="jLosses">0</div><div class="label">Erros</div></div>
+          <div class="stat-box"><div class="value" id="jWinRate">—</div><div class="label">Win Rate</div></div>
+          <div class="stat-box"><div class="value" id="jPnL">$0</div><div class="label">P&L Total</div></div>
+          <div class="stat-box"><div class="value" id="jAvgConf">—</div><div class="label">Confiança Média</div></div>
+        </div>
+        <div style="margin-top:10px;padding:10px;background:var(--log-bg);border:1px solid var(--border);border-radius:8px">
+          <h4 style="font-size:.85rem;margin-bottom:6px">🧠 Padrões Detectados</h4>
+          <div id="journalPatterns" style="font-size:.82rem;color:var(--muted)">Registre trades para ver padrões...</div>
+        </div>
+      </div>
+
+      <!-- Lista de trades -->
+      <div class="card">
+        <h2>📋 Trades Registrados</h2>
+        <div class="btn-row">
+          <button id="btnRefreshJournal">🔄 Atualizar</button>
+          <button class="danger" id="btnClearJournal">🗑️ Limpar</button>
+        </div>
+        <div id="journalList"><div class="empty">Nenhum trade registrado</div></div>
       </div>
     </div>
 
@@ -569,6 +685,22 @@
 
     <!-- ===== HISTÓRICO ===== -->
     <div class="page" id="page-historico">
+      <div class="card" style="border:2px solid var(--blue)">
+        <h2>📡 Sinais Salvos (Acompanhamento)</h2>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px">Sinais gerados pela busca que estão sendo acompanhados. O sistema verifica automaticamente se atingiram stop ou alvo.</p>
+        <div class="btn-row">
+          <button class="primary" id="btnCheckSavedSignals">🔍 Verificar Agora</button>
+          <button id="btnRefreshSaved">🔄 Atualizar</button>
+          <button class="danger" id="btnClearSaved">🗑️ Limpar Salvos</button>
+        </div>
+        <div class="stats-grid" id="savedStats">
+          <div class="stat-box"><div class="value" id="savedOpen">0</div><div class="label">Abertos</div></div>
+          <div class="stat-box"><div class="value" id="savedWins">0</div><div class="label">Acertos</div></div>
+          <div class="stat-box"><div class="value" id="savedLosses">0</div><div class="label">Erros</div></div>
+          <div class="stat-box"><div class="value" id="savedWinRate">—</div><div class="label">Win Rate</div></div>
+        </div>
+        <div id="savedSignalsList"><div class="empty">Nenhum sinal salvo ainda. Faça uma busca primeiro!</div></div>
+      </div>
       <div class="card">
         <h2>📜 Histórico Completo</h2>
         <div class="btn-row">
@@ -600,13 +732,13 @@
       <div class="card">
         <h2>🎚 Parâmetros</h2>
         <div class="cfg-grid">
-          <div class="cfg-item"><label>Score mínimo</label><input type="number" id="cfgMinScore" value="6" min="3" max="10" /></div>
+          <div class="cfg-item"><label>Score mínimo</label><input type="number" id="cfgMinScore" value="3" min="1" max="10" /></div>
           <div class="cfg-item"><label>Máx. posições abertas</label><input type="number" id="cfgMaxOpen" value="4" min="1" max="10" /></div>
           <div class="cfg-item"><label>Cooldown (horas)</label><input type="number" id="cfgCooldown" value="6" min="0" max="48" /></div>
           <div class="cfg-item"><label>Volume mínimo 24h</label><input type="number" id="cfgVol" value="50000000" step="1000000" /></div>
-          <div class="cfg-item"><label>RR mínimo</label><input type="number" id="cfgRR" value="1.8" step="0.1" min="1" /></div>
-          <div class="cfg-item"><label>Stop (× ATR)</label><input type="number" id="cfgStopATR" value="1.7" step="0.1" /></div>
-          <div class="cfg-item"><label>Alvo (× ATR)</label><input type="number" id="cfgTargetATR" value="3.2" step="0.1" /></div>
+          <div class="cfg-item"><label>RR mínimo</label><input type="number" id="cfgRR" value="1.5" step="0.1" min="1" /></div>
+          <div class="cfg-item"><label>Stop (× ATR)</label><input type="number" id="cfgStopATR" value="1.5" step="0.1" /></div>
+          <div class="cfg-item"><label>Alvo (× ATR)</label><input type="number" id="cfgTargetATR" value="2.8" step="0.1" /></div>
           <div class="cfg-item"><label>Volume spike</label><input type="number" id="cfgVolSpike" value="1.35" step="0.05" /></div>
         </div>
         <div class="btn-row">
@@ -614,6 +746,68 @@
           <button id="btnResetConfig">Restaurar padrão</button>
         </div>
         <div id="cfgMsg" style="font-size:.84rem;color:var(--muted);margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <h2>📋 Moedas Preferidas</h2>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px">Uma moeda por linha. Apenas pares USDT da Binance.</p>
+        <textarea id="cfgPairs" rows="6" style="width:100%;font-family:Consolas,monospace;font-size:.82rem;background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;resize:vertical"></textarea>
+        <div style="margin:8px 0;display:flex;flex-wrap:wrap;gap:6px">
+          <span style="font-size:.78rem;color:var(--muted);align-self:center">Presets:</span>
+          <button onclick="setPreset('bluechip')" style="font-size:.75rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);cursor:pointer">🔵 Blue-chip</button>
+          <button onclick="setPreset('defi')" style="font-size:.75rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);cursor:pointer">🏦 DeFi</button>
+          <button onclick="setPreset('layer2')" style="font-size:.75rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);cursor:pointer">🔷 Layer 2</button>
+          <button onclick="setPreset('ai')" style="font-size:.75rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);cursor:pointer">🤖 AI / Data</button>
+          <button onclick="setPreset('meme')" style="font-size:.75rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);cursor:pointer">🐸 Meme</button>
+          <button onclick="setPreset('all')" style="font-size:.75rem;padding:4px 10px;border-radius:6px;border:1px solid var(--blue);background:rgba(41,121,255,.15);color:var(--blue);cursor:pointer">📋 Todas (50+)</button>
+        </div>
+        <div class="btn-row" style="margin-top:4px">
+          <button class="primary" id="btnApplyPairs">💾 Salvar Moedas</button>
+          <button id="btnResetPairs">🔄 Restaurar Padrão</button>
+          <button id="btnLoadTopVol">📈 Top 30 por Volume</button>
+        </div>
+        <div id="pairsMsg" style="font-size:.84rem;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div class="card">
+        <h2>🔧 Períodos dos Indicadores</h2>
+        <div class="cfg-grid">
+          <div class="cfg-item"><label>EMA Longa</label><input type="number" id="cfgEmaPeriod" value="50" min="10" max="200" /></div>
+          <div class="cfg-item"><label>EMA Curta (Pullback)</label><input type="number" id="cfgEmaPullback" value="20" min="5" max="50" /></div>
+          <div class="cfg-item"><label>RSI Período</label><input type="number" id="cfgRsiPeriod" value="14" min="5" max="30" /></div>
+          <div class="cfg-item"><label>ATR Período</label><input type="number" id="cfgAtrPeriod" value="14" min="5" max="30" /></div>
+          <div class="cfg-item"><label>MACD Rápido</label><input type="number" id="cfgMacdFast" value="12" min="5" max="30" /></div>
+          <div class="cfg-item"><label>MACD Lento</label><input type="number" id="cfgMacdSlow" value="26" min="15" max="50" /></div>
+          <div class="cfg-item"><label>MACD Sinal</label><input type="number" id="cfgMacdSignal" value="9" min="3" max="20" /></div>
+          <div class="cfg-item"><label>Bollinger Período</label><input type="number" id="cfgBollPeriod" value="20" min="10" max="50" /></div>
+        </div>
+        <div class="btn-row">
+          <button class="primary" id="btnApplyPeriods">Aplicar Períodos</button>
+          <button id="btnResetPeriods">Restaurar Padrão</button>
+        </div>
+        <div id="periodsMsg" style="font-size:.84rem;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div class="card">
+        <h2>⚖️ Pesos dos Filtros (Score)</h2>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:10px">Quanto cada filtro contribui para o score final. Maior = mais peso.</p>
+        <div class="cfg-grid">
+          <div class="cfg-item"><label>📈 Multi-Timeframe</label><input type="number" id="cfgWMultiTF" value="2" min="0" max="5" step="0.5" /></div>
+          <div class="cfg-item"><label>🔄 Pullback EMA</label><input type="number" id="cfgWPullback" value="1" min="0" max="5" step="0.5" /></div>
+          <div class="cfg-item"><label>📊 Volume Spike</label><input type="number" id="cfgWVolume" value="1" min="0" max="5" step="0.5" /></div>
+          <div class="cfg-item"><label>🏗️ Estrutura Mercado</label><input type="number" id="cfgWStructure" value="1" min="0" max="5" step="0.5" /></div>
+          <div class="cfg-item"><label>🕯️ Candle Pattern</label><input type="number" id="cfgWCandle" value="1" min="0" max="5" step="0.5" /></div>
+          <div class="cfg-item"><label>📉 Zona RSI</label><input type="number" id="cfgWRSI" value="1" min="0" max="5" step="0.5" /></div>
+        </div>
+        <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:.8rem;color:var(--muted)">
+          Score máximo possível: <strong id="maxScoreDisplay" style="color:var(--text)">7</strong> · 
+          Score mínimo para sinal: <strong style="color:var(--blue)" id="minScoreDisplay">3</strong>
+        </div>
+        <div class="btn-row">
+          <button class="primary" id="btnApplyWeights">Aplicar Pesos</button>
+          <button id="btnResetWeights">Restaurar Padrão</button>
+          <button onclick="setWeightPreset('conservative')" style="font-size:.78rem">🛡️ Conservador</button>
+          <button onclick="setWeightPreset('balanced')" style="font-size:.78rem">⚖️ Balanceado</button>
+          <button onclick="setWeightPreset('aggressive')" style="font-size:.78rem">🚀 Agressivo</button>
+        </div>
+        <div id="weightsMsg" style="font-size:.84rem;color:var(--muted);margin-top:4px"></div>
       </div>
       <div class="card">
         <h2>🔔 Alertas</h2>
@@ -781,24 +975,38 @@ const AlertSystem = (() => {
 // ============================================
 
 const DEFAULTS = {
-  maxOpenPositions:4, cooldownHoursAfterLoss:6, minVolume24hUSDT:50e6, minRR:1.8,
+  maxOpenPositions:4, cooldownHoursAfterLoss:6, minVolume24hUSDT:50e6, minRR:1.5,
   emaPeriod:50, emaPullbackPeriod:20, rsiPeriod:14,
-  rsiMinBuy:48, rsiMaxBuy:72, rsiMinSell:28, rsiMaxSell:52,
-  atrPeriod:14, atrMultiplierStop:1.7, atrMultiplierTarget:3.2,
+  rsiMinBuy:40, rsiMaxBuy:75, rsiMinSell:25, rsiMaxSell:60,
+  atrPeriod:14, atrMultiplierStop:1.5, atrMultiplierTarget:2.8,
   macdFast:12, macdSlow:26, macdSignal:9,
   bollPeriod:20, bollStd:2,
   useMultiTF:true, usePullback:true, useVolumeSpike:true,
   useMarketStructure:true, useCandlePattern:true,
-  useCorrelationFilter:true, useScoreSystem:true, minScore:6,
+  useCorrelationFilter:true, useScoreSystem:true, minScore:3,
   useSessionFilter:false, requireFavorableMarket:false,
-  scoreWeights:{multiTF:2,pullback:2,volumeSpike:1,marketStructure:2,candlePattern:2,rsiZone:1},
+  scoreWeights:{multiTF:2,pullback:1,volumeSpike:1,marketStructure:1,candlePattern:1,rsiZone:1},
   cacheTTLMs:60000,
-  preferredPairs:["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","ADAUSDT","AVAXUSDT","DOTUSDT","LINKUSDT","DOGEUSDT","NEARUSDT","AAVEUSDT","LTCUSDT","ATOMUSDT","UNIUSDT"]
+  preferredPairs:[
+    // Blue-chip
+    "BTCUSDT","ETHUSDT","BNBUSDT","XRPUSDT","ADAUSDT","SOLUSDT","DOGEUSDT","DOTUSDT","AVAXUSDT","LINKUSDT",
+    // Layer 1
+    "NEARUSDT","ATOMUSDT","APTUSDT","SEIUSDT","SUIUSDT","TRXUSDT","LTCUSDT","HBARUSDT","FTMUSDT",
+    // Layer 2
+    "ARBUSDT","OPUSDT","MATICUSDT","STRKUSDT","IMXUSDT",
+    // DeFi
+    "UNIUSDT","AAVEUSDT","MKRUSDT","CRVUSDT","LDOUSDT","RUNEUSDT","1INCHUSDT","DYDXUSDT","SNXUSDT","PENDLEUSDT",
+    // AI / Data
+    "FETUSDT","RENDERUSDT","WLDUSDT","TAOUSDT","ARUSDT","GRTUSDT","OCEANUSDT",
+    // Meme
+    "PEPEUSDT","SHIBUSDT","FLOKIUSDT","WIFUSDT","BONKUSDT",
+    // Infra / Storage
+    "FILUSDT","INJUSDT","TIAUSDT","PYTHUSDT","JUPUSDT","DYMUSDT"]
 };
 
 let CONFIG = JSON.parse(JSON.stringify(DEFAULTS));
 const STORAGE_KEY = "cryptomaster_consolidated_v1";
-const rateLimiter = new RateLimiter(10, 60000);
+const rateLimiter = new RateLimiter(100, 10000);
 const cache = new SimpleCache(60000);
 
 function loadState() {
@@ -981,26 +1189,30 @@ async function fullAnalysis(symbol, timeframe='1h') {
   const price=closes[closes.length-1], lastEma20=ema20?ema20[ema20.length-1]:price, lastEma50=ema50?ema50[ema50.length-1]:price;
 
   let score=0, details={};
+  const side=price>lastEma50?'buy':'sell';
   // Multi-TF
   if(CONFIG.useMultiTF){
     const htf=tfMap()[timeframe]||'4h';
     try{const hk=await fetchKlines(symbol,htf,60);const hc=hk.map(k=>k.close);const he=calcEMA(hc,50);
-    if(he&&(timeframe.includes('h')?price>he:price>he)){score+=CONFIG.scoreWeights.multiTF;details.multiTF=true;}}catch{}
+    if(he&&((side==='buy'&&price>he)||(side==='sell'&&price<he))){score+=CONFIG.scoreWeights.multiTF;details.multiTF=true;}}catch{}
   }
   // Pullback
-  if(CONFIG.usePullback&&atr){const dist=Math.abs(price-lastEma20);if(dist<=atr*0.85){score+=CONFIG.scoreWeights.pullback;details.pullback=true;}}
+  if(CONFIG.usePullback&&atr){const dist=Math.abs(price-lastEma20);if(dist<=atr*1.5){score+=CONFIG.scoreWeights.pullback;details.pullback=true;}}
   // Volume
-  if(CONFIG.useVolumeSpike){const avg=volumes.slice(-20).reduce((a,b)=>a+b,0)/20;if(volumes[volumes.length-1]>avg*CONFIG.scoreWeights.volumeSpike*1.35){score+=CONFIG.scoreWeights.volumeSpike;details.volumeSpike=true;}}
+  if(CONFIG.useVolumeSpike){const avg=volumes.slice(-20).reduce((a,b)=>a+b,0)/20;if(avg>0&&volumes[volumes.length-1]>avg*1.35){score+=CONFIG.scoreWeights.volumeSpike;details.volumeSpike=true;}}
   // Market Structure
   if(CONFIG.useMarketStructure){const lb=Math.min(12,closes.length-2);if(lb>=6){const recent=closes.slice(-lb);const highsR=highs.slice(-lb);
-  if(price>Math.max(...highsR.slice(0,-1))||price<Math.min(...highsR.slice(0,-1))){score+=CONFIG.scoreWeights.marketStructure;details.structure=true;}}}
+  const breakHigh=price>Math.max(...highsR.slice(0,-1));const breakLow=price<Math.min(...highsR.slice(0,-1));
+  const emaTrend=(side==='buy'&&price>lastEma20)||(side==='sell'&&price<lastEma20);
+  if(breakHigh||breakLow||emaTrend){score+=CONFIG.scoreWeights.marketStructure;details.structure=true;}}}
   // Candle Pattern
   if(CONFIG.useCandlePattern){const pp=detectPatterns(klines);const last=pp[pp.length-1];if(last){score+=CONFIG.scoreWeights.candlePattern;details.candlePattern=last.name;}}
   // RSI Zone
-  if(rsi>=48&&rsi<=72){score+=CONFIG.scoreWeights.rsiZone;details.rsiZone=true;}
-
-  const side=price>lastEma50?'buy':'sell';
-  if(CONFIG.useScoreSystem&&score<CONFIG.minScore) return null;
+  if(rsi>=40&&rsi<=75){score+=CONFIG.scoreWeights.rsiZone;details.rsiZone=true;}
+  // MACD confirmation
+  if(macd&&macd.histogram!=null){const hist=macd.histogram;
+    if(side==='buy'&&hist>0){score+=1;details.macdBullish=true;}
+    else if(side==='sell'&&hist<0){score+=1;details.macdBearish=true;}}
 
   const sd=atr*CONFIG.atrMultiplierStop, td=atr*CONFIG.atrMultiplierTarget;
   let stop,target;
@@ -1077,6 +1289,182 @@ function log(msg, type='info') {
   el.scrollTop=el.scrollHeight;
 }
 
+// ===== MARKET REGIME DETECTOR =====
+const REGIMES = { TRENDING_UP:'TENDENCIA_SUBIDA', TRENDING_DOWN:'TENDENCIA_QUEDA', RANGING:'LATERAL', CRASH:'CRASH', PUMP:'PUMP' };
+
+async function detectMarketRegime() {
+  try {
+    const [btcK, ethK] = await Promise.all([
+      fetchKlines('BTCUSDT', '4h', 50),
+      fetchKlines('ETHUSDT', '4h', 50)
+    ]);
+    if (!btcK || btcK.length < 30) return { regime: 'INDEFINIDO', confidence: 0 };
+    
+    const closes = btcK.map(k => k.close);
+    const volumes = btcK.map(k => k.volume);
+    const ema20 = calcEMA(closes, 20);
+    const ema50 = calcEMA(closes, 50);
+    const atr = calcATR(closes, closes, closes, 14);
+    const price = closes[closes.length - 1];
+    const prevPrice = closes[closes.length - 5];
+    const change5 = ((price - prevPrice) / prevPrice) * 100;
+    const avgVol = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20;
+    const lastVol = volumes[volumes.length - 1];
+    const volRatio = avgVol > 0 ? lastVol / avgVol : 1;
+    
+    // ADX simplificado (tendencia vs lateral)
+    const range = Math.max(...closes.slice(-14)) - Math.min(...closes.slice(-14));
+    const trendStrength = atr > 0 ? range / (atr * 14) : 0;
+    
+    let regime, confidence, rec, emoji;
+    
+    if (change5 < -15) {
+      regime = REGIMES.CRASH; confidence = 90;
+      emoji = '🚨'; rec = 'MERCADO EM QUEDA LIVRE. Não opere. Aguarde estabilização.';
+    } else if (change5 > 15 && volRatio > 2) {
+      regime = REGIMES.PUMP; confidence = 85;
+      emoji = '🚀'; rec = 'PUMP DETECTADO. Cuidado com FOMO. Pode ser armadilha.';
+    } else if (trendStrength > 0.7 && ema20 && ema50 && ema20 > ema50) {
+      regime = REGIMES.TRENDING_UP; confidence = Math.min(90, 60 + trendStrength * 30);
+      emoji = '📈'; rec = 'Tendência de alta. Opere na direção da tendência. Compre em pullbacks.';
+    } else if (trendStrength > 0.7 && ema20 && ema50 && ema20 < ema50) {
+      regime = REGIMES.TRENDING_DOWN; confidence = Math.min(90, 60 + trendStrength * 30);
+      emoji = '📉'; rec = 'Tendência de baixa. Evite compras. Se operar, apenas vendas.';
+    } else {
+      regime = REGIMES.RANGING; confidence = Math.min(85, 50 + (1 - trendStrength) * 40);
+      emoji = '↔️'; rec = 'Mercado lateral. Opere nos extremos do range. Menor size.';
+    }
+    
+    return { regime, confidence: Math.round(confidence), rec, emoji, change5: change5.toFixed(2), volRatio: volRatio.toFixed(1) };
+  } catch(e) { return { regime: 'ERRO', confidence: 0, rec: 'Não foi possível detectar regime', emoji: '❓' }; }
+}
+
+// ===== ENHANCED CAPITAL MANAGEMENT =====
+const SECTOR_MAP = {
+  'BTCUSDT':'Blue-chip','ETHUSDT':'Blue-chip','BNBUSDT':'Blue-chip','XRPUSDT':'Blue-chip','ADAUSDT':'Blue-chip','SOLUSDT':'Blue-chip','DOGEUSDT':'Blue-chip','DOTUSDT':'Blue-chip','AVAXUSDT':'Blue-chip','LINKUSDT':'Blue-chip','LTCUSDT':'Blue-chip','TRXUSDT':'Blue-chip','NEARUSDT':'Layer1','ATOMUSDT':'Layer1','APTUSDT':'Layer1','SEIUSDT':'Layer1','SUIUSDT':'Layer1','HBARUSDT':'Layer1','FTMUSDT':'Layer1','ARBUSDT':'Layer2','OPUSDT':'Layer2','MATICUSDT':'Layer2','STRKUSDT':'Layer2','IMXUSDT':'Layer2','UNIUSDT':'DeFi','AAVEUSDT':'DeFi','MKRUSDT':'DeFi','CRVUSDT':'DeFi','LDOUSDT':'DeFi','RUNEUSDT':'DeFi','1INCHUSDT':'DeFi','DYDXUSDT':'DeFi','SNXUSDT':'DeFi','PENDLEUSDT':'DeFi','FETUSDT':'AI','RENDERUSDT':'AI','WLDUSDT':'AI','TAOUSDT':'AI','ARUSDT':'AI','GRTUSDT':'AI','OCEANUSDT':'AI','PEPEUSDT':'Meme','SHIBUSDT':'Meme','FLOKIUSDT':'Meme','WIFUSDT':'Meme','BONKUSDT':'Meme','FILUSDT':'Infra','INJUSDT':'Infra','TIAUSDT':'Infra','PYTHUSDT':'Infra','JUPUSDT':'Infra','DYMUSDT':'Infra'
+};
+
+function getSector(symbol) { return SECTOR_MAP[symbol] || 'Outro'; }
+
+function calculatePortfolioRisk(totalCapital) {
+  const open = state.positions.filter(p => p.status === 'ABERTA');
+  const sectors = {};
+  let totalRisk = 0;
+  
+  for (const pos of open) {
+    const sector = getSector(pos.symbol);
+    sectors[sector] = (sectors[sector] || 0) + 1;
+    totalRisk += Math.abs(pos.entry - pos.stop) / pos.entry * 100;
+  }
+  
+  const maxSectorExposure = Math.max(...Object.values(sectors), 0);
+  const sectorWarning = maxSectorExposure >= 3;
+  const totalRiskPct = totalRisk.toFixed(1);
+  const openCount = open.length;
+  const maxOpen = CONFIG.maxOpenPositions;
+  
+  return {
+    openCount,
+    maxOpen,
+    canOpen: openCount < maxOpen,
+    sectors,
+    sectorWarning,
+    maxSectorExposure,
+    totalRiskPct,
+    riskLevel: totalRisk > 8 ? 'ALTO' : totalRisk > 4 ? 'MEDIO' : 'BAIXO',
+    riskColor: totalRisk > 8 ? 'var(--red)' : totalRisk > 4 ? 'var(--yellow)' : 'var(--green)'
+  };
+}
+
+function calculateDynamicSize(capital, entry, stop, regime) {
+  const riskPct = regime === REGIMES.CRASH ? 0.5 : regime === REGIMES.TRENDING_UP ? 2 : regime === REGIMES.RANGING ? 1 : 1.5;
+  const riskAmt = capital * (riskPct / 100);
+  const riskPerUnit = Math.abs(entry - stop);
+  return riskPerUnit > 0 ? riskAmt / riskPerUnit : 0;
+}
+
+// ===== PRE-TRADE CHECKLIST =====
+function showTradeChecklist(signal) {
+  return new Promise((resolve) => {
+    const coin = signal.symbol.replace('USDT', '');
+    const dir = signal.side === 'buy' ? 'COMPRA' : 'VENDA';
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto">
+        <h2 style="margin-bottom:4px">📋 Checklist Pré-Trade</h2>
+        <p style="color:var(--muted);font-size:.82rem;margin-bottom:14px">${coin} — ${dir} @ $${Utils.formatNumber(signal.entry, 4)}</p>
+        
+        <div style="margin-bottom:12px">
+          <label style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:var(--log-bg);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:.84rem">
+            <input type="checkbox" id="ck1" style="accent-color:var(--blue);margin-top:3px">
+            <span>Eu entendo o <b>porquê</b> deste trade (não é só o score)</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:var(--log-bg);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:.84rem">
+            <input type="checkbox" id="ck2" style="accent-color:var(--blue);margin-top:3px">
+            <span>Eu sei onde está o <b>stop</b> e aceito a perda</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:var(--log-bg);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:.84rem">
+            <input type="checkbox" id="ck3" style="accent-color:var(--blue);margin-top:3px">
+            <span>O <b>risco/recompensa</b> vale a pena (RR ≥ 1.5)</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:var(--log-bg);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:.84rem">
+            <input type="checkbox" id="ck4" style="accent-color:var(--blue);margin-top:3px">
+            <span>Não estou <b>revenge trading</b> (perdi antes e quero recuperar)</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:var(--log-bg);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:.84rem">
+            <input type="checkbox" id="ck5" style="accent-color:var(--blue);margin-top:3px">
+            <span>Tenho <b>capital suficiente</b> para este trade</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;padding:8px;background:var(--log-bg);border-radius:8px;margin-bottom:6px;cursor:pointer;font-size:.84rem">
+            <input type="checkbox" id="ck6" style="accent-color:var(--blue);margin-top:3px">
+            <span>Não há <b>evento macro</b> importante em breve (FOMC, CPI, etc)</span>
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="document.querySelectorAll('#checklistOverlay input[type=checkbox]').forEach(c=>c.checked=true)" style="flex:1;padding:10px;border-radius:8px;background:var(--btn-bg);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:.84rem">✅ Marcar Todos</button>
+          <button id="ckConfirm" style="flex:2;padding:10px;border-radius:8px;background:var(--green);border:none;color:#fff;font-weight:700;cursor:pointer;font-size:.9rem">🚀 Confirmar Trade</button>
+          <button id="ckCancel" style="flex:1;padding:10px;border-radius:8px;background:var(--red);border:none;color:#fff;cursor:pointer;font-size:.84rem">❌ Cancelar</button>
+        </div>
+        <p id="ckError" style="color:var(--red);font-size:.78rem;margin-top:8px;text-align:center;display:none">Marque todos os checkboxes para confirmar</p>
+      </div>`;
+    overlay.id = 'checklistOverlay';
+    document.body.appendChild(overlay);
+    
+    document.getElementById('ckConfirm').onclick = () => {
+      const checked = overlay.querySelectorAll('input[type=checkbox]:checked').length;
+      if (checked < 6) {
+        document.getElementById('ckError').style.display = 'block';
+        return;
+      }
+      overlay.remove();
+      resolve(true);
+    };
+    document.getElementById('ckCancel').onclick = () => { overlay.remove(); resolve(false); };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+  });
+}
+
+// ===== FEAR & GREED INDEX =====
+async function fetchFearGreed() {
+  try {
+    const r = await fetch('https://api.alternative.me/fng/?limit=1');
+    const d = await r.json();
+    if (d.data && d.data[0]) {
+      const v = parseInt(d.data[0].value);
+      const cls = d.data[0].value_classification;
+      let color, emoji;
+      if (v <= 25) { color = 'var(--red)'; emoji = '😱'; }
+      else if (v <= 45) { color = 'var(--orange)'; emoji = '😰'; }
+      else if (v <= 55) { color = 'var(--yellow)'; emoji = '😐'; }
+      else if (v <= 75) { color = 'var(--green)'; emoji = '😊'; }
+      else { color = 'var(--green)'; emoji = '🤑'; }
+      return { value: v, classification: cls, color, emoji };
+    }
+  } catch(e) {}
+  return null;
+}
+
 // ===== MAIN SIGNAL BUTTON =====
 async function autoAnalyzeAll() {
   const loading = document.getElementById('simpleLoading');
@@ -1090,20 +1478,49 @@ async function autoAnalyzeAll() {
   result.style.display = 'none';
   btn.disabled = true;
   btn.textContent = '⏳ Analisando...';
+  if (loadText) loadText.textContent = 'Carregando dados do mercado...';
+  if (progress) progress.textContent = '';
 
+  // Pre-fetch all tickers in one request
+  let allTickers;
+  try { allTickers = await fetchAllTickers(); } catch(e) { allTickers = []; console.error('Falha ao buscar tickers:', e); }
+  const tickerMap = {};
+  if (allTickers) allTickers.forEach(t => { tickerMap[t.symbol] = t; });
+  if (!allTickers || allTickers.length === 0) {
+    loading.style.display = 'none'; result.style.display = 'block'; btn.disabled = false;
+    btn.textContent = '🔄 Tentar Novamente';
+    document.getElementById('simpleTopResults').innerHTML = '<div style="text-align:center;padding:30px;background:var(--log-bg);border:1px solid var(--red);border-radius:12px"><div style="font-size:2.5rem;margin-bottom:10px">⚠️</div><div style="font-size:1.2rem;font-weight:700;margin-bottom:8px;color:var(--red)">Erro ao conectar com a Binance</div><div style="color:var(--muted)">Verifique sua conexão com a internet.<br>Se estiver no Brasil, a Binance pode estar bloqueada pelo seu provedor.<br>Tente usar uma VPN.</div></div>';
+    document.getElementById('simpleMarketSummary').innerHTML = '';
+    return;
+  }
+
+  // === DETECTAR REGIME DE MERCADO ===
+  if (loadText) loadText.textContent = 'Detectando regime de mercado...';
+  const regime = await detectMarketRegime();
+  const fng = await fetchFearGreed();
+  const portfolioRisk = calculatePortfolioRisk(investAmt);
+
+  const searchTF = document.getElementById('searchTimeframe')?.value || '1h';
   const pairs = CONFIG.preferredPairs;
   const allSignals = [];
   const total = pairs.length;
   let done = 0;
 
-  for (const symbol of pairs) {
-    done++;
-    if (progress) progress.textContent = `${done}/${total} — ${symbol}`;
-    if (loadText) loadText.textContent = `Analisando ${symbol}...`;
-    try {
-      const sig = await fullAnalysis(symbol, '1h');
-      if (sig) allSignals.push(sig);
-    } catch(e) { console.error(symbol, e); }
+  // Run analyses in batches of 5 for parallelism
+  const BATCH = 5;
+  for (let i = 0; i < pairs.length; i += BATCH) {
+    const batch = pairs.slice(i, i + BATCH);
+    const results = await Promise.allSettled(batch.map(async (symbol) => {
+      done++;
+      if (progress) progress.textContent = `${done}/${total} — ${symbol}`;
+      if (loadText) loadText.textContent = `Analisando ${symbol}...`;
+      try {
+        const sig = await fullAnalysis(symbol, searchTF);
+        if (sig) return sig;
+      } catch(e) { console.error(symbol, e); }
+      return null;
+    }));
+    results.forEach(r => { if (r.status === 'fulfilled' && r.value) allSignals.push(r.value); });
   }
 
   const buys = allSignals.filter(s => s.side === 'buy').sort((a, b) => b.score - a.score);
@@ -1118,17 +1535,22 @@ async function autoAnalyzeAll() {
   if (buys.length > 0) {
     html += '<h3 style="color:var(--green);margin-bottom:10px">🟢 Melhores para COMPRAR</h3>';
     buys.slice(0, 5).forEach((s, i) => {
-      html += buildSignalCard(s, investAmt, i === 0);
+      html += buildSignalCard(s, investAmt, i === 0, regime);
     });
   }
   if (sells.length > 0) {
     html += '<h3 style="color:var(--red);margin-top:15px;margin-bottom:10px">🔴 Melhores para VENDER</h3>';
     sells.slice(0, 3).forEach((s) => {
-      html += buildSignalCard(s, investAmt, false);
+      html += buildSignalCard(s, investAmt, false, regime);
     });
   }
   if (buys.length === 0 && sells.length === 0) {
-    html = '<div style="text-align:center;padding:30px;background:var(--log-bg);border:1px solid var(--border);border-radius:12px"><div style="font-size:2.5rem;margin-bottom:10px">🤔</div><div style="font-size:1.2rem;font-weight:700;margin-bottom:8px">Nenhum sinal forte agora</div><div style="color:var(--muted)">O mercado está lateral ou sem direção clara.</div></div>';
+    const debugInfo = allSignals.map(s => `${s.symbol}: score=${s.score}, rr=${s.rr}, side=${s.side}`).join('<br>');
+    html = '<div style="text-align:center;padding:30px;background:var(--log-bg);border:1px solid var(--border);border-radius:12px"><div style="font-size:2.5rem;margin-bottom:10px">🤔</div><div style="font-size:1.2rem;font-weight:700;margin-bottom:8px">Nenhum sinal forte agora</div><div style="color:var(--muted)">O mercado pode estar lateral ou os filtros estão muito restritivos.</div>';
+    if (allSignals.length > 0) {
+      html += '<details style="margin-top:12px;text-align:left"><summary style="cursor:pointer;color:var(--blue);font-size:.85rem">🔍 Ver detalhes da análise (' + allSignals.length + ' moedas)</summary><div style="margin-top:8px;font-size:.78rem;color:var(--muted);max-height:200px;overflow-y:auto">' + debugInfo + '</div></details>';
+    }
+    html += '</div>';
   }
 
   document.getElementById('simpleTopResults').innerHTML = html;
@@ -1144,8 +1566,53 @@ async function autoAnalyzeAll() {
   const strongBuys = buys.filter(s => s.score >= 8).length;
   const strongSells = sells.filter(s => s.score >= 8).length;
 
-  document.getElementById('simpleMarketSummary').innerHTML = `
-    <div style="margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:12px">
+  // === REGIME + FEAR & GREED + RISCO DO PORTFOLIO ===
+  let regimeHtml = '';
+  if (regime && regime.regime !== 'ERRO' && regime.regime !== 'INDEFINIDO') {
+    regimeHtml = `<div style="margin-top:14px;padding:12px;background:var(--card);border:2px solid ${regime.regime === REGIMES.CRASH ? 'var(--red)' : regime.regime === REGIMES.TRENDING_UP ? 'var(--green)' : 'var(--yellow)'};border-radius:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:1.5rem">${regime.emoji}</span>
+        <div>
+          <div style="font-weight:700;font-size:1rem">Regime: ${regime.regime.replace(/_/g, ' ')}</div>
+          <div style="font-size:.82rem;color:var(--muted)">Confiança: ${regime.confidence}% · Δ5c: ${regime.change5}% · Vol: ${regime.volRatio}x</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;padding:8px;background:var(--log-bg);border-radius:8px;font-size:.82rem;color:var(--muted)">💡 ${regime.rec}</div>
+    </div>`;
+  }
+
+  let fngHtml = '';
+  if (fng) {
+    fngHtml = `<div style="margin-top:8px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:1.3rem">${fng.emoji}</span>
+      <div>
+        <div style="font-weight:700;color:${fng.color}">Fear & Greed: ${fng.value}/100</div>
+        <div style="font-size:.78rem;color:var(--muted)">${fng.classification}</div>
+      </div>
+      <div style="flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-left:8px">
+        <div style="width:${fng.value}%;height:100%;background:${fng.color};border-radius:4px"></div>
+      </div>
+    </div>`;
+  }
+
+  let riskHtml = '';
+  if (portfolioRisk.openCount > 0 || true) {
+    riskHtml = `<div style="margin-top:8px;padding:10px;background:var(--card);border:1px solid ${portfolioRisk.riskColor};border-radius:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div style="font-weight:700;font-size:.9rem">🛡️ Risco do Portfólio</div>
+        <span style="padding:2px 8px;border-radius:12px;font-size:.75rem;font-weight:700;background:${portfolioRisk.riskColor}22;color:${portfolioRisk.riskColor}">${portfolioRisk.riskLevel}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-top:6px;font-size:.8rem;color:var(--muted)">
+        <div>Posições: <b style="color:var(--text)">${portfolioRisk.openCount}/${portfolioRisk.maxOpen}</b></div>
+        <div>Risco total: <b style="color:${portfolioRisk.riskColor}">${portfolioRisk.totalRiskPct}%</b></div>
+        <div>Setores: <b style="color:${portfolioRisk.sectorWarning ? 'var(--red)' : 'var(--text)'}">${Object.keys(portfolioRisk.sectors).length} (${portfolioRisk.sectorWarning ? '⚠️ Concentrado' : '✅ Diversificado'})</b></div>
+      </div>
+      ${portfolioRisk.openCount >= portfolioRisk.maxOpen ? '<div style="margin-top:6px;padding:6px;background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:6px;font-size:.78rem;color:var(--warn-text);text-align:center">⚠️ Máximo de posições atingido. Feche uma antes de abrir outra.</div>' : ''}
+    </div>`;
+  }
+
+  document.getElementById('simpleMarketSummary').innerHTML = regimeHtml + fngHtml + riskHtml + `
+    <div style="margin-top:14px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:12px">
       <h3 style="font-size:.95rem;margin-bottom:10px">📊 Resumo do Mercado</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;text-align:center">
         <div style="background:var(--log-bg);border-radius:8px;padding:10px">
@@ -1177,9 +1644,31 @@ async function autoAnalyzeAll() {
     </div>`;
 
   if (progress) progress.textContent = `✅ ${allSignals.length} sinais encontrados`;
+
+  // === AUTO-SAVE: Salvar sinais para comparação futura ===
+  let savedCount = 0;
+  for (const sig of allSignals) {
+    // Evitar duplicatas: não salvar se já existe sinal ABERTA para o mesmo par+timeframe
+    const exists = state.positions.some(p => p.symbol === sig.symbol && p.timeframe === searchTF && p.status === 'ABERTA');
+    if (!exists) {
+      state.positions.push({
+        ...sig,
+        id: `search_${Date.now()}_${sig.symbol}`,
+        timestamp: Date.now(),
+        source: 'search',
+        searchTimeframe: searchTF,
+        investAmount: investAmt
+      });
+      savedCount++;
+    }
+  }
+  if (savedCount > 0) {
+    saveState(state);
+    log(`💾 ${savedCount} sinais salvos para acompanhamento`, 'ok');
+  }
 }
 
-function buildSignalCard(s, investAmt, isTop) {
+function buildSignalCard(s, investAmt, isTop, regime) {
   const dirColor = s.side === 'buy' ? 'var(--green)' : 'var(--red)';
   const dirText = s.side === 'buy' ? '🟢 COMPRAR' : '🔴 VENDER';
   const borderColor = isTop ? '#ffc107' : 'var(--border)';
@@ -1187,10 +1676,17 @@ function buildSignalCard(s, investAmt, isTop) {
   const confLabel = s.score >= 8 ? 'MUITO FORTE' : s.score >= 6 ? 'FORTE' : s.score >= 4 ? 'MODERADA' : 'FRACA';
   const confColor = s.score >= 8 ? 'var(--green)' : s.score >= 6 ? 'var(--green)' : s.score >= 4 ? 'var(--yellow)' : 'var(--muted)';
   const coin = s.symbol.replace('USDT','');
-  const riskAmt = investAmt * 0.02;
+  const sector = getSector(s.symbol);
+  
+  // Sizing dinâmico baseado no regime
+  const dynamicSize = regime && regime.regime ? calculateDynamicSize(investAmt, s.entry, s.stop, regime.regime) : investAmt * 0.02 / Math.abs(s.entry - s.stop);
+  const riskPct = regime?.regime === REGIMES.CRASH ? 0.5 : regime?.regime === REGIMES.TRENDING_UP ? 2 : 1;
+  const riskAmt = investAmt * (riskPct / 100);
   const riskPerUnit = Math.abs(s.entry - s.stop);
   const posSize = riskPerUnit > 0 ? riskAmt / riskPerUnit : 0;
   const profitPot = posSize * Math.abs(s.target - s.entry);
+  const regimeTag = regime && regime.regime ? regime.regime.replace(/_/g, ' ') : '';
+  const regimeColor = regime?.regime === REGIMES.CRASH ? 'var(--red)' : regime?.regime === REGIMES.TRENDING_UP ? 'var(--green)' : 'var(--yellow)';
 
   return `<div class="signal-box ${s.side}" style="border-color:${borderColor};border-width:${borderWidth};margin-bottom:12px;padding:14px;border-radius:12px;background:var(--card)">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
@@ -1198,6 +1694,7 @@ function buildSignalCard(s, investAmt, isTop) {
         <span style="font-size:1.15rem;font-weight:800">${coin}</span>
         <span class="badge ${s.side}" style="margin-left:6px">${dirText}</span>
         <span style="margin-left:6px;font-size:.78rem;color:${confColor};font-weight:600">${confLabel}</span>
+        <span style="margin-left:4px;font-size:.7rem;padding:2px 6px;border-radius:8px;background:var(--log-bg);color:var(--muted)">${sector}</span>
       </div>
       <div style="font-weight:800;font-size:1.1rem;color:var(--text)">$${Utils.formatNumber(s.price,4)}</div>
     </div>
@@ -1211,12 +1708,35 @@ function buildSignalCard(s, investAmt, isTop) {
     </div>
     <div style="margin-top:8px;padding:8px;background:var(--log-bg);border-radius:8px;font-size:.78rem;color:var(--muted)">
       💰 Para $${investAmt}: Risco $${Utils.formatNumber(riskAmt,2)} · Tamanho ${Utils.formatNumber(posSize,4)} · Lucro potencial $${Utils.formatNumber(profitPot,2)}
+      ${regimeTag ? `<span style="margin-left:6px;padding:1px 5px;border-radius:6px;font-size:.7rem;background:${regimeColor}22;color:${regimeColor}">${regimeTag}</span>` : ''}
     </div>
-    <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+    <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
       ${Object.keys(s.details).map(k=>`<span class="level-badge on">${k}</span>`).join('')}
+      <button onclick="handleChecklistClick('${s.symbol}',${JSON.stringify(s.side).replace(/"/g,'&quot;')},${s.entry},${s.stop},${s.target},${s.rr},${s.score})" style="margin-left:auto;padding:4px 10px;border-radius:6px;border:1px solid var(--blue);background:rgba(41,121,255,.1);color:var(--blue);font-size:.75rem;cursor:pointer;font-weight:600">📋 Checklist</button>
     </div>
   </div>`;
 }
+
+// ===== CHECKLIST CLICK HANDLER =====
+window.handleChecklistClick = async function(symbol, side, entry, stop, target, rr, score) {
+  const signal = { symbol, side, entry: +entry, stop: +stop, target: +target, rr: +rr, score: +score };
+  const approved = await showTradeChecklist(signal);
+  if (approved) {
+    // Salvar como sinal confirmado
+    state.positions.push({
+      ...signal,
+      id: `checklist_${Date.now()}_${symbol}`,
+      timestamp: Date.now(),
+      source: 'checklist',
+      status: 'ABERTA',
+      details: {},
+      atr: 0, rsi: null, timeframe: '1h'
+    });
+    saveState(state);
+    Utils.showToast(`${symbol.replace('USDT','')} confirmado via checklist!`, 'success');
+    log(`📋 ${side.toUpperCase()} ${symbol} confirmado via checklist @ $${Utils.formatNumber(entry, 4)}`, 'ok');
+  }
+};
 
 // ===== UI EVENT HANDLERS =====
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1357,11 +1877,412 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Stats
   document.getElementById('btnRefreshStats')?.addEventListener('click',updateStats);
 
-  // History
-  document.getElementById('btnRefreshHistory')?.addEventListener('click',updateHistory);
-  document.getElementById('btnClearHistory')?.addEventListener('click',()=>{
-    if(!confirm('Limpar histórico?')) return;state.history=[];saveState(state);updateHistory();Utils.showToast('Histórico limpo','success');
+  // === Saved Signals (Acompanhamento) ===
+  function updateSavedSignals() {
+    const saved = state.positions.filter(p => p.source === 'search');
+    const open = saved.filter(p => p.status === 'ABERTA');
+    const wins = state.history.filter(p => p.source === 'search' && p.status === 'ACERTOU');
+    const losses = state.history.filter(p => p.source === 'search' && p.status === 'ERROU');
+    const total = wins.length + losses.length;
+    const wr = total ? ((wins.length / total) * 100).toFixed(1) + '%' : '—';
+
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    set('savedOpen', open.length);
+    set('savedWins', wins.length);
+    set('savedLosses', losses.length);
+    set('savedWinRate', wr);
+
+    const el = document.getElementById('savedSignalsList');
+    if (!open.length && !wins.length && !losses.length) {
+      el.innerHTML = '<div class="empty">Nenhum sinal salvo ainda. Faça uma busca primeiro!</div>';
+      return;
+    }
+
+    let html = '';
+
+    // Sinais abertos
+    if (open.length) {
+      html += `<h3 style="color:var(--blue);margin:12px 0 8px;font-size:.95rem">📡 Acompanhando (${open.length})</h3>`;
+      open.sort((a, b) => b.score - a.score).forEach(s => {
+        const age = Math.round((Date.now() - s.timestamp) / 3600000);
+        const ageText = age < 1 ? '< 1h' : age + 'h';
+        const coin = s.symbol.replace('USDT', '');
+        const dirText = s.side === 'buy' ? '🟢 COMPRA' : '🔴 VENDA';
+        const confLabel = s.score >= 8 ? 'MUITO FORTE' : s.score >= 6 ? 'FORTE' : s.score >= 4 ? 'MODERADA' : 'FRACA';
+        const confColor = s.score >= 8 ? 'var(--green)' : s.score >= 6 ? 'var(--green)' : s.score >= 4 ? 'var(--yellow)' : 'var(--muted)';
+        const timeAgo = new Date(s.timestamp).toLocaleString('pt-BR');
+        html += `<div class="signal-box ${s.side}" style="margin-bottom:8px;padding:12px;border-radius:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px">
+            <div>
+              <span style="font-weight:800;font-size:1rem">${coin}</span>
+              <span class="badge ${s.side}" style="margin-left:5px">${dirText}</span>
+              <span style="margin-left:5px;font-size:.75rem;color:${confColor};font-weight:600">${confLabel} (${s.score})</span>
+            </div>
+            <span style="font-size:.72rem;color:var(--muted)">⏱ ${ageText} atrás</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:4px;margin-top:6px;font-size:.78rem;color:var(--muted)">
+            <div>Entry: <b style="color:var(--text)">$${Utils.formatNumber(s.entry, 4)}</b></div>
+            <div>Stop: <b style="color:var(--red)">$${Utils.formatNumber(s.stop, 4)}</b></div>
+            <div>Alvo: <b style="color:var(--green)">$${Utils.formatNumber(s.target, 4)}</b></div>
+            <div>RR: <b>${s.rr}</b></div>
+            <div>TF: <b>${s.searchTimeframe || s.timeframe || '1h'}</b></div>
+          </div>
+          <div style="font-size:.68rem;color:var(--muted);margin-top:4px">Salvo: ${timeAgo} · Filtros: ${Object.keys(s.details || {}).join(', ') || '—'}</div>
+        </div>`;
+      });
+    }
+
+    // Sinais fechados (recentes)
+    const allClosed = [...wins, ...losses].sort((a, b) => (b.closedAt || b.timestamp) - (a.closedAt || a.timestamp));
+    if (allClosed.length) {
+      html += `<h3 style="color:var(--muted);margin:16px 0 8px;font-size:.95rem">📜 Resultados (${allClosed.length})</h3>`;
+      html += '<table style="font-size:.78rem"><thead><tr><th>Data</th><th>Par</th><th>Lado</th><th>Entrada</th><th>Fechou</th><th>Resultado</th><th>Score</th></tr></thead><tbody>';
+      allClosed.slice(0, 30).forEach(h => {
+        const date = new Date(h.closedAt || h.timestamp).toLocaleString('pt-BR');
+        const coin = h.symbol.replace('USDT', '');
+        html += `<tr>
+          <td style="font-size:.7rem;white-space:nowrap">${date}</td>
+          <td style="font-weight:700">${coin}</td>
+          <td><span class="badge ${h.side}">${h.side === 'buy' ? 'C' : 'V'}</span></td>
+          <td>$${Utils.formatNumber(h.entry, 4)}</td>
+          <td>$${Utils.formatNumber(h.closePrice, 4)}</td>
+          <td class="${h.status === 'ACERTOU' ? 'positive' : 'negative'}" style="font-weight:700">${h.status === 'ACERTOU' ? '✅ ACERTOU' : '❌ ERROU'}</td>
+          <td>${h.score}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+    }
+
+    el.innerHTML = html;
+  }
+
+  // Verificar sinais salvos agora
+  document.getElementById('btnCheckSavedSignals')?.addEventListener('click', async () => {
+    const open = state.positions.filter(p => p.source === 'search' && p.status === 'ABERTA');
+    if (!open.length) { Utils.showToast('Nenhum sinal aberto para verificar', 'info'); return; }
+    Utils.showToast(`Verificando ${open.length} sinais...`, 'info');
+    let closed = 0;
+    for (const pos of open) {
+      try {
+        const t = await fetchTicker(pos.symbol);
+        if (!t) continue;
+        if (pos.side === 'buy') {
+          if (t.price <= pos.stop) { pos.status = 'ERROU'; pos.closePrice = t.price; }
+          else if (t.price >= pos.target) { pos.status = 'ACERTOU'; pos.closePrice = t.price; }
+        } else {
+          if (t.price >= pos.stop) { pos.status = 'ERROU'; pos.closePrice = t.price; }
+          else if (t.price <= pos.target) { pos.status = 'ACERTOU'; pos.closePrice = t.price; }
+        }
+        if (pos.status !== 'ABERTA') {
+          pos.closedAt = Date.now();
+          state.history.unshift({ ...pos });
+          closed++;
+        }
+      } catch (e) { console.error(pos.symbol, e); }
+    }
+    state.positions = state.positions.filter(p => p.status === 'ABERTA');
+    saveState(state);
+    updateSavedSignals();
+    updateStats();
+    if (closed > 0) {
+      Utils.showToast(`${closed} sinais fechados!`, 'success');
+      log(`📊 ${closed} sinais verificados e fechados`, 'ok');
+    } else {
+      Utils.showToast('Nenhum sinal atingiu stop/target ainda', 'info');
+    }
   });
+
+  document.getElementById('btnRefreshSaved')?.addEventListener('click', updateSavedSignals);
+  document.getElementById('btnClearSaved')?.addEventListener('click', () => {
+    if (!confirm('Limpar todos os sinais salvos?')) return;
+    state.positions = state.positions.filter(p => p.source !== 'search');
+    saveState(state);
+    updateSavedSignals();
+    Utils.showToast('Sinais salvos limpos', 'success');
+  });
+
+  // History
+  document.getElementById('btnRefreshHistory')?.addEventListener('click', updateHistory);
+  document.getElementById('btnClearHistory')?.addEventListener('click', () => {
+    if (!confirm('Limpar histórico?')) return; state.history = []; saveState(state); updateHistory(); Utils.showToast('Histórico limpo', 'success');
+  });
+
+  // === JOURNAL ===
+  let selectedEmotion = '';
+  let selectedConfidence = 0;
+
+  window.pickEmotion = function(btn, emotion) {
+    document.querySelectorAll('#emotionPicker button').forEach(b => {
+      b.style.background = 'var(--btn-bg)'; b.style.borderColor = 'var(--border)'; b.style.color = 'var(--text)';
+    });
+    btn.style.background = 'var(--purple)'; btn.style.borderColor = 'var(--purple)'; btn.style.color = '#fff';
+    document.getElementById('journalEmotion').value = emotion;
+    selectedEmotion = emotion;
+  };
+
+  window.pickConfidence = function(btn, level) {
+    document.querySelectorAll('#confidencePicker button').forEach(b => {
+      b.style.background = 'var(--btn-bg)'; b.style.borderColor = 'var(--border)'; b.style.color = 'var(--text)';
+    });
+    btn.style.background = 'var(--blue)'; btn.style.borderColor = 'var(--blue)'; btn.style.color = '#fff';
+    document.getElementById('journalConfidence').value = level;
+    selectedConfidence = level;
+  };
+
+  function renderJournalList() {
+    const el = document.getElementById('journalList');
+    const entries = state.journal || [];
+    if (!entries.length) { el.innerHTML = '<div class="empty">Nenhum trade registrado</div>'; return; }
+
+    let html = '<table style="font-size:.78rem"><thead><tr><th>Data</th><th>Par</th><th>Lado</th><th>Setup</th><th>Entrada</th><th>Resultado</th><th>P&L</th><th>Emoção</th><th>Conf.</th><th></th></tr></thead><tbody>';
+
+    [...entries].reverse().forEach((j, i) => {
+      const idx = entries.length - 1 - i;
+      const date = new Date(j.timestamp).toLocaleString('pt-BR');
+      const coin = j.symbol ? j.symbol.replace('USDT', '') : '—';
+      const resultBadge = j.result === 'ACERTOU' ? '<span style="color:var(--green)">✅</span>' : j.result === 'ERROU' ? '<span style="color:var(--red)">❌</span>' : j.result === 'EMPATE' ? '<span style="color:var(--yellow)">➖</span>' : '<span style="color:var(--muted)">⏳</span>';
+      const emotionEmoji = { calmo:'😌', confiante:'💪', ansioso:'😰', enganado:'😤', fomo:'🔥', medo:'😨', ganancioso:'💰', neutro:'😐' };
+      html += `<tr style="border-bottom:1px solid var(--border)">
+        <td style="font-size:.7rem;white-space:nowrap">${date}</td>
+        <td style="font-weight:700">${coin}</td>
+        <td><span class="badge ${j.side || ''}">${j.side === 'buy' ? 'C' : 'V'}</span></td>
+        <td style="font-size:.75rem">${j.setup || '—'}</td>
+        <td>$${Utils.formatNumber(j.entry, 4)}</td>
+        <td>${resultBadge}</td>
+        <td style="font-weight:700;color:${(j.pnl||0) >= 0 ? 'var(--green)' : 'var(--red)'}">${j.pnl ? '$' + Utils.formatNumber(j.pnl, 2) : '—'}</td>
+        <td>${emotionEmoji[j.emotion] || '😐'}</td>
+        <td>${j.confidence || '—'}</td>
+        <td><button onclick="viewJournalDetail(${idx})" style="padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);font-size:.7rem;cursor:pointer">Ver</button></td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  }
+
+  window.viewJournalDetail = function(idx) {
+    const j = (state.journal || [])[idx];
+    if (!j) return;
+    const emotionEmoji = { calmo:'😌', confiante:'💪', ansioso:'😰', enganado:'😤', fomo:'🔥', medo:'😨', ganancioso:'💰', neutro:'😐' };
+    const resultColor = j.result === 'ACERTOU' ? 'var(--green)' : j.result === 'ERROU' ? 'var(--red)' : 'var(--yellow)';
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:520px;width:100%;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h2>${emotionEmoji[j.emotion] || '📓'} ${j.symbol || '—'}</h2>
+          <button onclick="this.closest('div[style]').parentElement.remove()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--text);cursor:pointer">✕</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.84rem;margin-bottom:12px">
+          <div><span style="color:var(--muted)">Lado:</span> <b>${j.side === 'buy' ? '🟢 Compra' : '🔴 Venda'}</b></div>
+          <div><span style="color:var(--muted)">Setup:</span> <b>${j.setup || '—'}</b></div>
+          <div><span style="color:var(--muted)">Entrada:</span> <b>$${Utils.formatNumber(j.entry, 4)}</b></div>
+          <div><span style="color:var(--muted)">Stop:</span> <b style="color:var(--red)">$${Utils.formatNumber(j.stop, 4)}</b></div>
+          <div><span style="color:var(--muted)">Alvo:</span> <b style="color:var(--green)">$${Utils.formatNumber(j.target, 4)}</b></div>
+          <div><span style="color:var(--muted)">Score:</span> <b>${j.score || '—'}</b></div>
+          <div><span style="color:var(--muted)">Emoção:</span> <b>${emotionEmoji[j.emotion] || ''} ${j.emotion || '—'}</b></div>
+          <div><span style="color:var(--muted)">Confiança:</span> <b>${j.confidence || '—'}/4</b></div>
+          <div><span style="color:var(--muted)">Resultado:</span> <b style="color:${resultColor}">${j.result || '⏳ Aberto'}</b></div>
+          <div><span style="color:var(--muted)">P&L:</span> <b style="color:${(j.pnl||0)>=0?'var(--green)':'var(--red)'}">${j.pnl ? '$'+Utils.formatNumber(j.pnl,2) : '—'}</b></div>
+        </div>
+        ${j.reason ? `<div style="margin-bottom:10px"><div style="font-size:.78rem;color:var(--muted);margin-bottom:3px">📝 Por que entrei:</div><div style="padding:8px;background:var(--log-bg);border-radius:8px;font-size:.84rem">${j.reason}</div></div>` : ''}
+        ${j.lesson ? `<div style="margin-bottom:10px"><div style="font-size:.78rem;color:var(--muted);margin-bottom:3px">💡 Lição aprendida:</div><div style="padding:8px;background:var(--log-bg);border-radius:8px;font-size:.84rem;border-left:3px solid var(--blue)">${j.lesson}</div></div>` : ''}
+        <div style="font-size:.72rem;color:var(--muted);text-align:center">Salvo: ${new Date(j.timestamp).toLocaleString('pt-BR')}</div>
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  };
+
+  // Adicionar entrada no journal
+  document.getElementById('btnAddJournal')?.addEventListener('click', () => {
+    const symbol = document.getElementById('journalSymbol').value.trim().toUpperCase();
+    const side = document.getElementById('journalSide').value;
+    const setup = document.getElementById('journalSetup').value;
+    const entry = +document.getElementById('journalEntry').value;
+    const stop = +document.getElementById('journalStop').value;
+    const target = +document.getElementById('journalTarget').value;
+    const score = +document.getElementById('journalScore').value;
+    const emotion = document.getElementById('journalEmotion').value;
+    const confidence = +document.getElementById('journalConfidence').value;
+    const reason = document.getElementById('journalReason').value.trim();
+    const lesson = document.getElementById('journalLesson').value.trim();
+    const result = document.getElementById('journalResult').value;
+    const pnl = +document.getElementById('journalPnL').value;
+
+    if (!symbol) { Utils.showToast('Digite o par', 'error'); return; }
+
+    state.journal.push({
+      id: `j_${Date.now()}`,
+      timestamp: Date.now(),
+      symbol, side, setup, entry, stop, target, score,
+      emotion, confidence, reason, lesson, result, pnl: pnl || 0
+    });
+    saveState(state);
+
+    // Limpar formulário
+    document.getElementById('journalSymbol').value = '';
+    document.getElementById('journalEntry').value = '';
+    document.getElementById('journalStop').value = '';
+    document.getElementById('journalTarget').value = '';
+    document.getElementById('journalReason').value = '';
+    document.getElementById('journalLesson').value = '';
+    document.getElementById('journalPnL').value = '';
+    document.getElementById('journalResult').value = '';
+    selectedEmotion = ''; selectedConfidence = 0;
+    document.getElementById('journalEmotion').value = '';
+    document.getElementById('journalConfidence').value = '';
+    document.querySelectorAll('#emotionPicker button').forEach(b => {
+      b.style.background = 'var(--btn-bg)'; b.style.borderColor = 'var(--border)'; b.style.color = 'var(--text)';
+    });
+    document.querySelectorAll('#confidencePicker button').forEach(b => {
+      b.style.background = 'var(--btn-bg)'; b.style.borderColor = 'var(--border)'; b.style.color = 'var(--text)';
+    });
+
+    document.getElementById('journalMsg').textContent = `✅ ${symbol} salvo no journal!`;
+    Utils.showToast('Trade registrado!', 'success');
+    updateJournalStats();
+    renderJournalList();
+  });
+
+  function updateJournalStats() {
+    const entries = state.journal || [];
+    const withResult = entries.filter(j => j.result);
+    const wins = withResult.filter(j => j.result === 'ACERTOU');
+    const losses = withResult.filter(j => j.result === 'ERROU');
+    const totalPnL = entries.reduce((s, j) => s + (j.pnl || 0), 0);
+    const avgConf = entries.length ? (entries.reduce((s, j) => s + (j.confidence || 0), 0) / entries.length).toFixed(1) : '—';
+    const wr = withResult.length ? ((wins.length / withResult.length) * 100).toFixed(1) + '%' : '—';
+
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    set('jTotal', entries.length);
+    set('jWins', wins.length);
+    set('jLosses', losses.length);
+    set('jWinRate', wr);
+    set('jPnL', '$' + Utils.formatNumber(totalPnL, 2));
+    set('jAvgConf', avgConf);
+
+    // Detectar padrões
+    const patterns = [];
+    const emotionWR = {};
+    entries.forEach(j => {
+      if (!j.emotion || !j.result) return;
+      if (!emotionWR[j.emotion]) emotionWR[j.emotion] = { w: 0, l: 0 };
+      if (j.result === 'ACERTOU') emotionWR[j.emotion].w++;
+      else if (j.result === 'ERROU') emotionWR[j.emotion].l++;
+    });
+    for (const [emo, wl] of Object.entries(emotionWR)) {
+      const total = wl.w + wl.l;
+      if (total >= 3) {
+        const wr = ((wl.w / total) * 100).toFixed(0);
+        patterns.push(`Emoção "${emo}": ${wr}% win rate (${total} trades)`);
+      }
+    }
+
+    // Padrão por setup
+    const setupWR = {};
+    entries.forEach(j => {
+      if (!j.setup || !j.result) return;
+      if (!setupWR[j.setup]) setupWR[j.setup] = { w: 0, l: 0 };
+      if (j.result === 'ACERTOU') setupWR[j.setup].w++;
+      else if (j.result === 'ERROU') setupWR[j.setup].l++;
+    });
+    for (const [setup, wl] of Object.entries(setupWR)) {
+      const total = wl.w + wl.l;
+      if (total >= 3) {
+        const wr = ((wl.w / total) * 100).toFixed(0);
+        patterns.push(`Setup "${setup}": ${wr}% win rate (${total} trades)`);
+      }
+    }
+
+    // Padrão por confiança
+    const highConf = entries.filter(j => j.confidence >= 3 && j.result);
+    const lowConf = entries.filter(j => j.confidence <= 2 && j.result);
+    if (highConf.length >= 3) {
+      const hw = highConf.filter(j => j.result === 'ACERTOU').length;
+      patterns.push(`Alta confiança (3-4): ${((hw/highConf.length)*100).toFixed(0)}% win rate`);
+    }
+    if (lowConf.length >= 3) {
+      const lw = lowConf.filter(j => j.result === 'ACERTOU').length;
+      patterns.push(`Baixa confiança (1-2): ${((lw/lowConf.length)*100).toFixed(0)}% win rate`);
+    }
+
+    const el = document.getElementById('journalPatterns');
+    if (patterns.length) {
+      el.innerHTML = patterns.map(p => `<div style="padding:4px 0;border-bottom:1px solid var(--border)">📊 ${p}</div>`).join('');
+    } else {
+      el.textContent = 'Registre mais trades (mín. 3) para detectar padrões...';
+    }
+  }
+
+  document.getElementById('btnRefreshJournal')?.addEventListener('click', () => {
+    updateJournalStats(); renderJournalList();
+  });
+
+  document.getElementById('btnClearJournal')?.addEventListener('click', () => {
+    if (!confirm('Apagar todo o journal?')) return;
+    state.journal = []; saveState(state);
+    updateJournalStats(); renderJournalList();
+    Utils.showToast('Journal limpo', 'success');
+  });
+
+  document.getElementById('btnExportJournal')?.addEventListener('click', () => {
+    const entries = state.journal || [];
+    if (!entries.length) { Utils.showToast('Nada para exportar', 'error'); return; }
+    const header = 'Data,Par,Lado,Setup,Entrada,Stop,Alvo,Score,Emoção,Confiança,Resultado,P&L,Motivo,Lição\n';
+    const rows = entries.map(j => {
+      const d = new Date(j.timestamp).toLocaleString('pt-BR');
+      return `${d},${j.symbol || ''},${j.side || ''},${j.setup || ''},${j.entry || ''},${j.stop || ''},${j.target || ''},${j.score || ''},${j.emotion || ''},${j.confidence || ''},${j.result || 'Aberto'},${j.pnl || 0},"${(j.reason||'').replace(/"/g,'""')}","${(j.lesson||'').replace(/"/g,'""')}"`;
+    }).join('\n');
+    const blob = new Blob([header + rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'journal_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click(); URL.revokeObjectURL(url);
+    Utils.showToast('Journal exportado!', 'success');
+  });
+
+  // Carregar journal ao iniciar
+  setTimeout(() => { updateJournalStats(); renderJournalList(); }, 200);
+
+  // Atualizar sinais salvos ao carregar
+  setTimeout(updateSavedSignals, 100);
+
+  // Verificação automática periódica (a cada 5 minutos)
+  setInterval(async () => {
+    const open = state.positions.filter(p => p.source === 'search' && p.status === 'ABERTA');
+    if (!open.length) return;
+    let closed = 0;
+    for (const pos of open) {
+      try {
+        const t = await fetchTicker(pos.symbol);
+        if (!t) continue;
+        if (pos.side === 'buy') {
+          if (t.price <= pos.stop) { pos.status = 'ERROU'; pos.closePrice = t.price; }
+          else if (t.price >= pos.target) { pos.status = 'ACERTOU'; pos.closePrice = t.price; }
+        } else {
+          if (t.price >= pos.stop) { pos.status = 'ERROU'; pos.closePrice = t.price; }
+          else if (t.price <= pos.target) { pos.status = 'ACERTOU'; pos.closePrice = t.price; }
+        }
+        if (pos.status !== 'ABERTA') {
+          pos.closedAt = Date.now();
+          state.history.unshift({ ...pos });
+          closed++;
+        }
+      } catch(e) {}
+    }
+    if (closed > 0) {
+      state.positions = state.positions.filter(p => p.status === 'ABERTA');
+      saveState(state);
+      updateSavedSignals();
+      updateStats();
+      log(`🔔 Verificação automática: ${closed} sinais fechados`, 'ok');
+      if (closed > 0) {
+        const last = state.history[0];
+        const emoji = last.status === 'ACERTOU' ? '✅' : '❌';
+        Utils.showToast(`${emoji} ${last.symbol.replace('USDT','')} ${last.status}!`, last.status === 'ACERTOU' ? 'success' : 'error');
+        AlertSystem.playAlert(last.status === 'ACERTOU' ? 'buy' : 'sell');
+        AlertSystem.flashScreen();
+      }
+    }
+  }, 300000); // 5 minutos
 
   // Config
   document.getElementById('btnApplyConfig')?.addEventListener('click',()=>{
@@ -1378,7 +2299,135 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   document.getElementById('btnResetConfig')?.addEventListener('click',()=>{
     CONFIG=JSON.parse(JSON.stringify(DEFAULTS));document.getElementById('cfgMsg').textContent='Config restaurada';Utils.showToast('Config restaurada','success');
+    loadPairsToUI();
   });
+
+  // === Pairs Editor ===
+  function loadPairsToUI(){
+    const el=document.getElementById('cfgPairs'); if(el) el.value=CONFIG.preferredPairs.join('\n');
+  }
+  loadPairsToUI();
+
+  document.getElementById('btnApplyPairs')?.addEventListener('click',()=>{
+    const raw=document.getElementById('cfgPairs').value;
+    const pairs=raw.split(/[\n,]+/).map(s=>s.trim().toUpperCase()).filter(s=>/^[A-Z0-9]{5,20}$/.test(s));
+    if(pairs.length<3){document.getElementById('pairsMsg').textContent='❌ Mínimo 3 moedas válidas';return;}
+    CONFIG.preferredPairs=pairs;
+    document.getElementById('pairsMsg').textContent=`✅ ${pairs.length} moedas salvas!`;
+    Utils.showToast(`${pairs.length} moedas configuradas!`,'success');
+  });
+
+  document.getElementById('btnResetPairs')?.addEventListener('click',()=>{
+    CONFIG.preferredPairs=[...DEFAULTS.preferredPairs];
+    loadPairsToUI();
+    document.getElementById('pairsMsg').textContent='Moedas restauradas';Utils.showToast('Moedas restauradas','success');
+  });
+
+  document.getElementById('btnLoadTopVol')?.addEventListener('click', async()=>{
+    document.getElementById('pairsMsg').textContent='Carregando top moedas por volume...';
+    try{
+      const tickers=await fetchAllTickers();
+      const top30=tickers.sort((a,b)=>b.volume-a.volume).slice(0,30).map(t=>t.symbol);
+      CONFIG.preferredPairs=top30;
+      loadPairsToUI();
+      document.getElementById('pairsMsg').textContent=`✅ Top 30 por volume carregadas!`;
+      Utils.showToast('Top 30 por volume!','success');
+    }catch(e){document.getElementById('pairsMsg').textContent='Erro: '+e.message;}
+  });
+
+  // === Presets ===
+  const PRESETS = {
+    bluechip: ['BTCUSDT','ETHUSDT','BNBUSDT','XRPUSDT','ADAUSDT','SOLUSDT','DOGEUSDT','DOTUSDT','AVAXUSDT','LINKUSDT','LTCUSDT','TRXUSDT'],
+    defi: ['UNIUSDT','AAVEUSDT','MKRUSDT','CRVUSDT','LDOUSDT','RUNEUSDT','1INCHUSDT','DYDXUSDT','SNXUSDT','PENDLEUSDT','COMPUSDT','SUSHIUSDT'],
+    layer2: ['ARBUSDT','OPUSDT','MATICUSDT','STRKUSDT','IMXUSDT','BOBAUSDT','METISUSDT'],
+    ai: ['FETUSDT','RENDERUSDT','WLDUSDT','TAOUSDT','ARUSDT','GRTUSDT','OCEANUSDT','NMRUSDT'],
+    meme: ['PEPEUSDT','SHIBUSDT','FLOKIUSDT','WIFUSDT','BONKUSDT','DOGEUSDT','ELONUSDT','BabyDOGEUSDT','MOGUSDT','TURBOUSDT'],
+    all: null // uses DEFAULTS.preferredPairs
+  };
+
+  window.setPreset = function(name) {
+    const pairs = name === 'all' ? [...DEFAULTS.preferredPairs] : PRESETS[name];
+    if (!pairs) return;
+    document.getElementById('cfgPairs').value = pairs.join('\n');
+    document.getElementById('pairsMsg').textContent = `Preset "${name}" carregado (${pairs.length} moedas)`;
+  };
+
+  // === Indicator Periods ===
+  document.getElementById('btnApplyPeriods')?.addEventListener('click',()=>{
+    CONFIG.emaPeriod=+document.getElementById('cfgEmaPeriod').value;
+    CONFIG.emaPullbackPeriod=+document.getElementById('cfgEmaPullback').value;
+    CONFIG.rsiPeriod=+document.getElementById('cfgRsiPeriod').value;
+    CONFIG.atrPeriod=+document.getElementById('cfgAtrPeriod').value;
+    CONFIG.macdFast=+document.getElementById('cfgMacdFast').value;
+    CONFIG.macdSlow=+document.getElementById('cfgMacdSlow').value;
+    CONFIG.macdSignal=+document.getElementById('cfgMacdSignal').value;
+    CONFIG.bollPeriod=+document.getElementById('cfgBollPeriod').value;
+    document.getElementById('periodsMsg').textContent='✅ Períodos aplicados!';
+    Utils.showToast('Períodos atualizados!','success');
+  });
+
+  document.getElementById('btnResetPeriods')?.addEventListener('click',()=>{
+    CONFIG.emaPeriod=DEFAULTS.emaPeriod; CONFIG.emaPullbackPeriod=DEFAULTS.emaPullbackPeriod;
+    CONFIG.rsiPeriod=DEFAULTS.rsiPeriod; CONFIG.atrPeriod=DEFAULTS.atrPeriod;
+    CONFIG.macdFast=DEFAULTS.macdFast; CONFIG.macdSlow=DEFAULTS.macdSlow;
+    CONFIG.macdSignal=DEFAULTS.macdSignal; CONFIG.bollPeriod=DEFAULTS.bollPeriod;
+    document.getElementById('cfgEmaPeriod').value=DEFAULTS.emaPeriod;
+    document.getElementById('cfgEmaPullback').value=DEFAULTS.emaPullbackPeriod;
+    document.getElementById('cfgRsiPeriod').value=DEFAULTS.rsiPeriod;
+    document.getElementById('cfgAtrPeriod').value=DEFAULTS.atrPeriod;
+    document.getElementById('cfgMacdFast').value=DEFAULTS.macdFast;
+    document.getElementById('cfgMacdSlow').value=DEFAULTS.macdSlow;
+    document.getElementById('cfgMacdSignal').value=DEFAULTS.macdSignal;
+    document.getElementById('cfgBollPeriod').value=DEFAULTS.bollPeriod;
+    document.getElementById('periodsMsg').textContent='Períodos restaurados';
+    Utils.showToast('Períodos restaurados!','success');
+  });
+
+  // === Score Weights ===
+  function loadWeightsToUI(){
+    const sw=CONFIG.scoreWeights;
+    const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+    set('cfgWMultiTF',sw.multiTF); set('cfgWPullback',sw.pullback); set('cfgWVolume',sw.volumeSpike);
+    set('cfgWStructure',sw.marketStructure); set('cfgWCandle',sw.candlePattern); set('cfgWRSI',sw.rsiZone);
+    const total=sw.multiTF+sw.pullback+sw.volumeSpike+sw.marketStructure+sw.candlePattern+sw.rsiZone;
+    const ms=document.getElementById('maxScoreDisplay'); if(ms) ms.textContent=total;
+    const ms2=document.getElementById('minScoreDisplay'); if(ms2) ms2.textContent=CONFIG.minScore;
+  }
+  loadWeightsToUI();
+
+  document.getElementById('btnApplyWeights')?.addEventListener('click',()=>{
+    CONFIG.scoreWeights={
+      multiTF:+document.getElementById('cfgWMultiTF').value,
+      pullback:+document.getElementById('cfgWPullback').value,
+      volumeSpike:+document.getElementById('cfgWVolume').value,
+      marketStructure:+document.getElementById('cfgWStructure').value,
+      candlePattern:+document.getElementById('cfgWCandle').value,
+      rsiZone:+document.getElementById('cfgWRSI').value
+    };
+    loadWeightsToUI();
+    document.getElementById('weightsMsg').textContent='✅ Pesos aplicados!';
+    Utils.showToast('Pesos do score atualizados!','success');
+  });
+
+  document.getElementById('btnResetWeights')?.addEventListener('click',()=>{
+    CONFIG.scoreWeights={...DEFAULTS.scoreWeights};
+    loadWeightsToUI();
+    document.getElementById('weightsMsg').textContent='Pesos restaurados';
+    Utils.showToast('Pesos restaurados!','success');
+  });
+
+  const WEIGHT_PRESETS = {
+    conservative: {multiTF:3,pullback:1,volumeSpike:1,marketStructure:2,candlePattern:2,rsiZone:1},
+    balanced: {multiTF:2,pullback:1,volumeSpike:1,marketStructure:1,candlePattern:1,rsiZone:1},
+    aggressive: {multiTF:1,pullback:1,volumeSpike:1,marketStructure:1,candlePattern:1,rsiZone:1}
+  };
+
+  window.setWeightPreset = function(name) {
+    CONFIG.scoreWeights={...WEIGHT_PRESETS[name]};
+    loadWeightsToUI();
+    document.getElementById('weightsMsg').textContent=`Preset "${name}" aplicado`;
+    Utils.showToast(`Peso ${name} aplicado!`,'success');
+  };
 
   // Alert tests
   document.getElementById('btnTestAlertBuy')?.addEventListener('click',()=>{AlertSystem.playAlert('buy');AlertSystem.flashScreen();});

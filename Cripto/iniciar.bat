@@ -1,9 +1,9 @@
 @echo off
-title Crypto Facil - Servidor
+title CryptoMaster - Servidor
 color 0A
 echo.
 echo  ========================================
-echo   CRYPTO FACIL - Servidor Local
+echo   CRYPTOMASTER - Servidor Local
 echo  ========================================
 echo.
 echo  Iniciando servidor...
@@ -21,7 +21,7 @@ REM Espera servidor iniciar
 timeout /t 2 /nobreak >nul
 
 REM Abre navegador
-start http://localhost:9393/Simples.html
+start http://localhost:9393/Consolidated.html
 
 echo  Servidor rodando em: http://localhost:9393
 echo  Pressione qualquer tecla para PARAR o servidor...
