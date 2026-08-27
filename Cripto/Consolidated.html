@@ -554,13 +554,22 @@
             <option value="sell">🔴 Venda</option>
           </select>
           <label>Setup:</label>
-          <select id="journalSetup" style="width:140px">
+          <select id="journalSetup" style="width:130px">
             <option value="pullback">Pullback EMA</option>
             <option value="breakout">Breakout</option>
             <option value="reversal">Reversão</option>
             <option value="continuation">Continuação</option>
             <option value="scalp">Scalp</option>
             <option value="outro">Outro</option>
+          </select>
+          <label>Timeframe:</label>
+          <select id="journalTimeframe" style="width:80px">
+            <option value="5m">5m</option>
+            <option value="15m">15m</option>
+            <option value="1h" selected>1h</option>
+            <option value="2h">2h</option>
+            <option value="4h">4h</option>
+            <option value="1d">1d</option>
           </select>
         </div>
 
@@ -643,6 +652,34 @@
         <div style="margin-top:10px;padding:10px;background:var(--log-bg);border:1px solid var(--border);border-radius:8px">
           <h4 style="font-size:.85rem;margin-bottom:6px">🧠 Padrões Detectados</h4>
           <div id="journalPatterns" style="font-size:.82rem;color:var(--muted)">Registre trades para ver padrões...</div>
+        </div>
+      </div>
+
+      <!-- Gráficos de Performance -->
+      <div class="card">
+        <h2>📈 Gráficos de Performance</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">💰 Equity Curve</h4>
+            <canvas id="journalEquityCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+            <div id="journalEquityStats" style="display:flex;gap:8px;margin-top:6px;font-size:.72rem;color:var(--muted)"></div>
+          </div>
+          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">📊 P&L por Trade</h4>
+            <canvas id="journalPnLCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+          </div>
+          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">😊 Win Rate por Emoção</h4>
+            <canvas id="journalEmotionCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+          </div>
+          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">🎯 Win Rate por Setup</h4>
+            <canvas id="journalSetupCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+          </div>
+          <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">⏱️ Win Rate por Timeframe</h4>
+            <canvas id="journalTFCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+          </div>
         </div>
       </div>
 
@@ -2034,7 +2071,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const entries = state.journal || [];
     if (!entries.length) { el.innerHTML = '<div class="empty">Nenhum trade registrado</div>'; return; }
 
-    let html = '<table style="font-size:.78rem"><thead><tr><th>Data</th><th>Par</th><th>Lado</th><th>Setup</th><th>Entrada</th><th>Resultado</th><th>P&L</th><th>Emoção</th><th>Conf.</th><th></th></tr></thead><tbody>';
+    let html = '<table style="font-size:.78rem"><thead><tr><th>Data</th><th>Par</th><th>Lado</th><th>Setup</th><th>TF</th><th>Entrada</th><th>Resultado</th><th>P&L</th><th>Emoção</th><th>Conf.</th><th></th></tr></thead><tbody>';
 
     [...entries].reverse().forEach((j, i) => {
       const idx = entries.length - 1 - i;
@@ -2047,6 +2084,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         <td style="font-weight:700">${coin}</td>
         <td><span class="badge ${j.side || ''}">${j.side === 'buy' ? 'C' : 'V'}</span></td>
         <td style="font-size:.75rem">${j.setup || '—'}</td>
+        <td style="font-size:.75rem">${j.timeframe || '1h'}</td>
         <td>$${Utils.formatNumber(j.entry, 4)}</td>
         <td>${resultBadge}</td>
         <td style="font-weight:700;color:${(j.pnl||0) >= 0 ? 'var(--green)' : 'var(--red)'}">${j.pnl ? '$' + Utils.formatNumber(j.pnl, 2) : '—'}</td>
@@ -2075,6 +2113,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.84rem;margin-bottom:12px">
           <div><span style="color:var(--muted)">Lado:</span> <b>${j.side === 'buy' ? '🟢 Compra' : '🔴 Venda'}</b></div>
           <div><span style="color:var(--muted)">Setup:</span> <b>${j.setup || '—'}</b></div>
+          <div><span style="color:var(--muted)">Timeframe:</span> <b>${j.timeframe || '1h'}</b></div>
           <div><span style="color:var(--muted)">Entrada:</span> <b>$${Utils.formatNumber(j.entry, 4)}</b></div>
           <div><span style="color:var(--muted)">Stop:</span> <b style="color:var(--red)">$${Utils.formatNumber(j.stop, 4)}</b></div>
           <div><span style="color:var(--muted)">Alvo:</span> <b style="color:var(--green)">$${Utils.formatNumber(j.target, 4)}</b></div>
@@ -2097,6 +2136,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const symbol = document.getElementById('journalSymbol').value.trim().toUpperCase();
     const side = document.getElementById('journalSide').value;
     const setup = document.getElementById('journalSetup').value;
+    const timeframe = document.getElementById('journalTimeframe').value;
     const entry = +document.getElementById('journalEntry').value;
     const stop = +document.getElementById('journalStop').value;
     const target = +document.getElementById('journalTarget').value;
@@ -2113,7 +2153,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     state.journal.push({
       id: `j_${Date.now()}`,
       timestamp: Date.now(),
-      symbol, side, setup, entry, stop, target, score,
+      symbol, side, setup, timeframe, entry, stop, target, score,
       emotion, confidence, reason, lesson, result, pnl: pnl || 0
     });
     saveState(state);
@@ -2211,6 +2251,256 @@ document.addEventListener('DOMContentLoaded',()=>{
     } else {
       el.textContent = 'Registre mais trades (mín. 3) para detectar padrões...';
     }
+
+    // === DESENHAR GRÁFICOS ===
+    drawJournalCharts(entries, withResult);
+  }
+
+  // === GRÁFICOS DO JOURNAL ===
+  function drawJournalCharts(entries, withResult) {
+    const getCtx = (id) => {
+      const c = document.getElementById(id);
+      if (!c) return null;
+      c.width = c.offsetWidth * 2; c.height = c.offsetHeight * 2;
+      const ctx = c.getContext('2d');
+      ctx.scale(2, 2);
+      return { ctx, w: c.offsetWidth, h: c.offsetHeight };
+    };
+    const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e4e6eb';
+    const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#9ca3af';
+    const borderColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || '#2a2e3a';
+    const greenColor = '#00c853';
+    const redColor = '#ff1744';
+    const blueColor = '#2979ff';
+    const yellowColor = '#ffab00';
+
+    // 1. EQUITY CURVE
+    const eq = getCtx('journalEquityCanvas');
+    if (eq && withResult.length) {
+      const { ctx, w, h } = eq;
+      ctx.clearRect(0, 0, w, h);
+      let balance = 1000;
+      const points = [{ x: 0, y: balance }];
+      withResult.sort((a, b) => a.timestamp - b.timestamp).forEach(j => {
+        balance += j.pnl || 0;
+        points.push({ x: points.length, y: balance });
+      });
+      const minY = Math.min(...points.map(p => p.y)) * 0.95;
+      const maxY = Math.max(...points.map(p => p.y)) * 1.05;
+      const rangeY = maxY - minY || 1;
+      const padding = { l: 40, r: 10, t: 10, b: 20 };
+      const chartW = w - padding.l - padding.r;
+      const chartH = h - padding.t - padding.b;
+
+      // Grid
+      ctx.strokeStyle = borderColor; ctx.lineWidth = 0.5;
+      for (let i = 0; i <= 4; i++) {
+        const y = padding.t + (chartH / 4) * i;
+        ctx.beginPath(); ctx.moveTo(padding.l, y); ctx.lineTo(w - padding.r, y); ctx.stroke();
+        const val = maxY - (rangeY / 4) * i;
+        ctx.fillStyle = mutedColor; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText('$' + val.toFixed(0), padding.l - 4, y + 3);
+      }
+
+      // Linha
+      ctx.beginPath();
+      points.forEach((p, i) => {
+        const x = padding.l + (i / (points.length - 1 || 1)) * chartW;
+        const y = padding.t + (1 - (p.y - minY) / rangeY) * chartH;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = points[points.length - 1].y >= 1000 ? greenColor : redColor;
+      ctx.lineWidth = 2; ctx.stroke();
+
+      // Área preenchida
+      const lastX = padding.l + chartW;
+      const lastY = padding.t + (1 - (points[points.length - 1].y - minY) / rangeY) * chartH;
+      ctx.lineTo(lastX, padding.t + chartH);
+      ctx.lineTo(padding.l, padding.t + chartH);
+      ctx.closePath();
+      ctx.fillStyle = (points[points.length - 1].y >= 1000 ? greenColor : redColor) + '15';
+      ctx.fill();
+
+      // Ponto final
+      ctx.beginPath(); ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = points[points.length - 1].y >= 1000 ? greenColor : redColor; ctx.fill();
+
+      // Stats
+      const finalBal = points[points.length - 1].y;
+      const returnPct = ((finalBal - 1000) / 1000 * 100).toFixed(1);
+      const es = document.getElementById('journalEquityStats');
+      if (es) es.innerHTML = `<span>Inicio: $1,000</span><span style="color:${finalBal >= 1000 ? greenColor : redColor}">Final: $${finalBal.toFixed(2)}</span><span style="color:${finalBal >= 1000 ? greenColor : redColor}">${returnPct}%</span>`;
+    } else if (eq) {
+      const { ctx, w, h } = eq;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = mutedColor; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Registre trades com resultado para ver a equity curve', w / 2, h / 2);
+    }
+
+    // 2. P&L POR TRADE
+    const pl = getCtx('journalPnLCanvas');
+    if (pl && withResult.length) {
+      const { ctx, w, h } = pl;
+      ctx.clearRect(0, 0, w, h);
+      const padding = { l: 40, r: 10, t: 10, b: 20 };
+      const chartW = w - padding.l - padding.r;
+      const chartH = h - padding.t - padding.b;
+      const pnls = withResult.map(j => j.pnl || 0);
+      const maxAbs = Math.max(...pnls.map(Math.abs), 1);
+      const barW = Math.max(2, (chartW / pnls.length) - 2);
+      const zeroY = padding.t + chartH / 2;
+
+      // Linha zero
+      ctx.strokeStyle = borderColor; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padding.l, zeroY); ctx.lineTo(w - padding.r, zeroY); ctx.stroke();
+
+      // Barras
+      pnls.forEach((pnl, i) => {
+        const x = padding.l + (i / pnls.length) * chartW + 1;
+        const barH = Math.abs(pnl) / maxAbs * (chartH / 2 - 5);
+        ctx.fillStyle = pnl >= 0 ? greenColor : redColor;
+        if (pnl >= 0) { ctx.fillRect(x, zeroY - barH, barW, barH); }
+        else { ctx.fillRect(x, zeroY, barW, barH); }
+      });
+
+      // Labels
+      ctx.fillStyle = mutedColor; ctx.font = '8px sans-serif'; ctx.textAlign = 'right';
+      ctx.fillText('+$' + maxAbs.toFixed(0), padding.l - 3, padding.t + 10);
+      ctx.fillText('$0', padding.l - 3, zeroY + 3);
+      ctx.fillText('-$' + maxAbs.toFixed(0), padding.l - 3, h - padding.b);
+    } else if (pl) {
+      const { ctx, w, h } = pl;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = mutedColor; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('Sem dados de P&L ainda', w / 2, h / 2);
+    }
+
+    // 3. WIN RATE POR EMOÇÃO
+    const emo = getCtx('journalEmotionCanvas');
+    if (emo) {
+      const { ctx, w, h } = emo;
+      ctx.clearRect(0, 0, w, h);
+      const emotionWR = {};
+      entries.forEach(j => {
+        if (!j.emotion || !j.result) return;
+        if (!emotionWR[j.emotion]) emotionWR[j.emotion] = { w: 0, l: 0 };
+        if (j.result === 'ACERTOU') emotionWR[j.emotion].w++;
+        else if (j.result === 'ERROU') emotionWR[j.emotion].l++;
+      });
+      const emoList = Object.entries(emotionWR).filter(([, v]) => v.w + v.l > 0);
+      if (!emoList.length) {
+        ctx.fillStyle = mutedColor; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('Registre trades com emoção para ver o gráfico', w / 2, h / 2);
+        return;
+      }
+      const padding = { l: 10, r: 10, t: 10, b: 30 };
+      const chartW = w - padding.l - padding.r;
+      const chartH = h - padding.t - padding.b;
+      const barW = Math.min(40, (chartW / emoList.length) - 8);
+      const emojis = { calmo:'😌', confiante:'💪', ansioso:'😰', enganado:'😤', fomo:'🔥', medo:'😨', ganancioso:'💰', neutro:'😐' };
+
+      emoList.forEach(([emotion, wl], i) => {
+        const total = wl.w + wl.l;
+        const wr = total > 0 ? wl.w / total : 0;
+        const x = padding.l + (i / emoList.length) * chartW + (chartW / emoList.length - barW) / 2;
+        const barH = wr * chartH;
+
+        // Barra
+        ctx.fillStyle = wr >= 0.6 ? greenColor : wr >= 0.4 ? yellowColor : redColor;
+        ctx.fillRect(x, padding.t + chartH - barH, barW, barH);
+
+        // Win rate label
+        ctx.fillStyle = textColor; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText((wr * 100).toFixed(0) + '%', x + barW / 2, padding.t + chartH - barH - 4);
+
+        // Emoji
+        ctx.font = '14px sans-serif';
+        ctx.fillText(emojis[emotion] || '😐', x + barW / 2, h - padding.b + 14);
+      });
+    }
+
+    // 4. WIN RATE POR SETUP
+    const setup = getCtx('journalSetupCanvas');
+    if (setup) {
+      const { ctx, w, h } = setup;
+      ctx.clearRect(0, 0, w, h);
+      const setupWR = {};
+      entries.forEach(j => {
+        if (!j.setup || !j.result) return;
+        if (!setupWR[j.setup]) setupWR[j.setup] = { w: 0, l: 0 };
+        if (j.result === 'ACERTOU') setupWR[j.setup].w++;
+        else if (j.result === 'ERROU') setupWR[j.setup].l++;
+      });
+      const setupList = Object.entries(setupWR).filter(([, v]) => v.w + v.l > 0);
+      if (!setupList.length) {
+        ctx.fillStyle = mutedColor; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('Registre trades com setup para ver o gráfico', w / 2, h / 2);
+        return;
+      }
+      const padding = { l: 10, r: 10, t: 10, b: 30 };
+      const chartW = w - padding.l - padding.r;
+      const chartH = h - padding.t - padding.b;
+      const barW = Math.min(50, (chartW / setupList.length) - 8);
+      const setupLabels = { pullback:'Pullback', breakout:'Breakout', reversal:'Reversão', continuation:'Continuação', scalp:'Scalp', outro:'Outro' };
+
+      setupList.forEach(([s, wl], i) => {
+        const total = wl.w + wl.l;
+        const wr = total > 0 ? wl.w / total : 0;
+        const x = padding.l + (i / setupList.length) * chartW + (chartW / setupList.length - barW) / 2;
+        const barH = wr * chartH;
+
+        ctx.fillStyle = wr >= 0.6 ? greenColor : wr >= 0.4 ? yellowColor : redColor;
+        ctx.fillRect(x, padding.t + chartH - barH, barW, barH);
+
+        ctx.fillStyle = textColor; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText((wr * 100).toFixed(0) + '%', x + barW / 2, padding.t + chartH - barH - 4);
+        ctx.fillStyle = mutedColor; ctx.font = '8px sans-serif';
+        ctx.fillText(setupLabels[s] || s, x + barW / 2, h - padding.b + 12);
+      });
+    }
+
+    // 5. WIN RATE POR TIMEFRAME
+    const tf = getCtx('journalTFCanvas');
+    if (tf) {
+      const { ctx, w, h } = tf;
+      ctx.clearRect(0, 0, w, h);
+      const tfWR = {};
+      entries.forEach(j => {
+        const tfKey = j.timeframe || j.searchTimeframe || '1h';
+        if (!j.result) return;
+        if (!tfWR[tfKey]) tfWR[tfKey] = { w: 0, l: 0 };
+        if (j.result === 'ACERTOU') tfWR[tfKey].w++;
+        else if (j.result === 'ERROU') tfWR[tfKey].l++;
+      });
+      const tfList = Object.entries(tfWR).filter(([, v]) => v.w + v.l > 0);
+      if (!tfList.length) {
+        ctx.fillStyle = mutedColor; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('Registre trades com timeframe para ver o gráfico', w / 2, h / 2);
+        return;
+      }
+      // Ordenar por timeframe lógico
+      const tfOrder = { '5m':1, '15m':2, '1h':3, '2h':4, '4h':5, '1d':6 };
+      tfList.sort((a, b) => (tfOrder[a[0]] || 99) - (tfOrder[b[0]] || 99));
+      const padding = { l: 10, r: 10, t: 10, b: 30 };
+      const chartW = w - padding.l - padding.r;
+      const chartH = h - padding.t - padding.b;
+      const barW = Math.min(50, (chartW / tfList.length) - 8);
+
+      tfList.forEach(([tfKey, wl], i) => {
+        const total = wl.w + wl.l;
+        const wr = total > 0 ? wl.w / total : 0;
+        const x = padding.l + (i / tfList.length) * chartW + (chartW / tfList.length - barW) / 2;
+        const barH = wr * chartH;
+
+        ctx.fillStyle = wr >= 0.6 ? greenColor : wr >= 0.4 ? yellowColor : redColor;
+        ctx.fillRect(x, padding.t + chartH - barH, barW, barH);
+
+        ctx.fillStyle = textColor; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText((wr * 100).toFixed(0) + '%', x + barW / 2, padding.t + chartH - barH - 4);
+        ctx.fillStyle = mutedColor; ctx.font = '9px sans-serif';
+        ctx.fillText(tfKey, x + barW / 2, h - padding.b + 12);
+      });
+    }
   }
 
   document.getElementById('btnRefreshJournal')?.addEventListener('click', () => {
@@ -2227,10 +2517,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('btnExportJournal')?.addEventListener('click', () => {
     const entries = state.journal || [];
     if (!entries.length) { Utils.showToast('Nada para exportar', 'error'); return; }
-    const header = 'Data,Par,Lado,Setup,Entrada,Stop,Alvo,Score,Emoção,Confiança,Resultado,P&L,Motivo,Lição\n';
+    const header = 'Data,Par,Lado,Setup,Timeframe,Entrada,Stop,Alvo,Score,Emoção,Confiança,Resultado,P&L,Motivo,Lição\n';
     const rows = entries.map(j => {
       const d = new Date(j.timestamp).toLocaleString('pt-BR');
-      return `${d},${j.symbol || ''},${j.side || ''},${j.setup || ''},${j.entry || ''},${j.stop || ''},${j.target || ''},${j.score || ''},${j.emotion || ''},${j.confidence || ''},${j.result || 'Aberto'},${j.pnl || 0},"${(j.reason||'').replace(/"/g,'""')}","${(j.lesson||'').replace(/"/g,'""')}"`;
+      return `${d},${j.symbol || ''},${j.side || ''},${j.setup || ''},${j.timeframe || '1h'},${j.entry || ''},${j.stop || ''},${j.target || ''},${j.score || ''},${j.emotion || ''},${j.confidence || ''},${j.result || 'Aberto'},${j.pnl || 0},"${(j.reason||'').replace(/"/g,'""')}","${(j.lesson||'').replace(/"/g,'""')}"`;
     }).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
