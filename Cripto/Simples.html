@@ -307,6 +307,7 @@ async function analyzeCoin(sym,tf,amount,type,lev){
   const resistances=sr.filter(s=>s.type==='resistance'&&s.price>price).sort((a,b)=>a.price-b.price).slice(0,2);
 
   return{symbol:sym,pair:sym.replace('USDT','/USDT'),side,score,reasons,price,entry:price,stop,tp1,tp2,tp3,rr:+rr.toFixed(2),rsi:+rsiVal.toFixed(1),atr:atrVal,volPct,change24h:ticker.change,volume24h:ticker.volume,posSize:+posSize.toFixed(6),cost:+cost.toFixed(2),profit1:+profit1.toFixed(2),profit2:+profit2.toFixed(2),profit3:+profit3.toFixed(2),leverage:type==='futures'?lev:1,trendStr,supports,resistances,macdHist:macdVal?macdVal.hist:0,bbPctB:bb?bb.pctB:0.5,ticker}
+}
 
 async function analyze(){
   const amount=+document.getElementById('amount').value;
@@ -316,14 +317,14 @@ async function analyze(){
   try{
     setText('loadingText','📡 Buscando moedas...');setProgress('');
     const tickers=await fetchAllTickers(),pairs=tickers.sort((a,b)=>b.volume-a.volume).slice(0,30);
-    setText('loadingText','📊 Analisando indicadores...');const analyzed=[];
-    for(let i=0;i<pairs.length;i++){setProgress(`${i+1}/${pairs.length} — ${pairs[i].symbol}`);try{const r=await analyzeCoin(pairs[i].symbol,selectedTF,amount,selectedType,selectedLev);if(r&&r.score>=4)analyzed.push(r)}catch(e){}}
+    setText('loadingText','📊 Analisando indicadores...');const analyzed=[];let errors=0;
+    for(let i=0;i<pairs.length;i++){setProgress(`${i+1}/${pairs.length} — ${pairs[i].symbol}`);try{const r=await analyzeCoin(pairs[i].symbol,selectedTF,amount,selectedType,selectedLev);if(r)analyzed.push(r)}catch(e){errors++;console.error('Erro '+pairs[i].symbol+':',e.message)}}
     analyzed.sort((a,b)=>b.score-a.score||b.rr-a.rr);
     loading.classList.remove('show');results.classList.add('show');
     // Alerta sonoro se有机会 forte (score >= 7)
     const strong=analyzed.filter(a=>a.score>=7);
     if(strong.length>0){playAlert(strong[0].side);flashAlert(strong[0].side)}
-    if(!analyzed.length){document.getElementById('resultsList').innerHTML='<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:2rem;margin-bottom:12px">🤷</div><div>Nenhuma oportunidade forte encontrada</div></div>';document.getElementById('resultsSubtitle').textContent='Nenhuma oportunidade no momento';return}
+    if(!analyzed.length){document.getElementById('resultsList').innerHTML=`<div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:2rem;margin-bottom:12px">🤷</div><div style="font-size:1.1rem;margin-bottom:8px">Nenhuma oportunidade encontrada</div><div style="font-size:.85rem">Pares analisados: ${pairs.length} · Erros: ${errors}</div><div style="font-size:.82rem;margin-top:8px">Tente outro timeframe ou verifique sua conexão.</div></div>`;document.getElementById('resultsSubtitle').textContent='Nenhuma oportunidade no momento';return}
     const buys=analyzed.filter(a=>a.side==='buy').length;
     document.getElementById('resultsSubtitle').textContent=`${analyzed.length} oportunidades em ${pairs.length} pares`;
     document.getElementById('resultsSummary').innerHTML=`<div class="summary-pill" style="color:var(--green)">🟢 ${buys} Compra</div><div class="summary-pill" style="color:var(--red)">🔴 ${analyzed.length-buys} Venda</div><div class="summary-pill">📊 ${selectedTF} · ${selectedType==='futures'?selectedLev+'×':'Spot'}</div><div class="summary-pill">💰 $${amount}</div>`;
