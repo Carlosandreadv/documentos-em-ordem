@@ -258,7 +258,8 @@ function findSR(candles,lb=40){const d=candles.slice(-lb),lv=[];for(let i=2;i<d.
 
 async function fetchKlines(sym,interval,limit=120){const ck=`k:${sym}:${interval}:${limit}`;const c=cached(ck);if(c)return c;await rl.wait();const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`);if(!r.ok)throw new Error(`API ${r.status}`);const d=await r.json();const result=d.map(k=>({time:k[0],open:+k[1],high:+k[2],low:+k[3],close:+k[4],volume:+k[5]}));cacheSet(ck,result);return result}
 async function fetchTicker(sym){const ck=`t:${sym}`;const c=cached(ck);if(c)return c;await rl.wait();const r=await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${sym}`);if(!r.ok)return null;const d=await r.json();const result={symbol:d.symbol,price:+d.lastPrice,change:+d.priceChangePercent,high:+d.highPrice,low:+d.lowPrice,volume:+d.quoteVolume};cacheSet(ck,result);return result}
-async function fetchAllTickers(){const ck='all';const c=cached(ck);if(c)return c;await rl.wait();const r=await fetch('https://api.binance.com/api/v3/ticker/24hr');if(!r.ok)throw new Error('Erro tickers');const d=await r.json();const result=d.filter(t=>t.symbol.endsWith('USDT')&&+t.quoteVolume>10e6).map(t=>({symbol:t.symbol,price:+t.lastPrice,change:+t.priceChangePercent,high:+t.highPrice,low:+t.lowPrice,volume:+t.quoteVolume}));cacheSet(ck,result);return result}
+async function fetchAllTickers(){const ck='all';const c=cached(ck);if(c)return c;await rl.wait();const r=await fetch('https://api.binance.com/api/v3/ticker/24hr');if(!r.ok)throw new Error('Erro tickers');const d=await r.json();const result=d.filter(t=>t.symbol.endsWith('USDT')&&+t.quoteVolume>5e6).map(t=>({symbol:t.symbol,price:+t.lastPrice,change:+t.priceChangePercent,high:+t.highPrice,low:+t.lowPrice,volume:+t.quoteVolume}));cacheSet(ck,result);return result}
+async function fetchKlinesBatch(symbols,interval,limit=100){const results={};const batchSize=5;for(let i=0;i<symbols.length;i+=batchSize){const batch=symbols.slice(i,i+batchSize);await Promise.all(batch.map(async sym=>{try{await rl.wait();const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${interval}&limit=${limit}`);if(!r.ok)return;const d=await r.json();results[sym]=d.map(k=>({time:k[0],open:+k[1],high:+k[2],low:+k[3],close:+k[4],volume:+k[5]}))}catch(e){}}))}return results}
 
 async function analyzeCoin(sym,tf,amount,type,lev){
   const klines=await fetchKlines(sym,tf,120),ticker=await fetchTicker(sym);
@@ -309,16 +310,52 @@ async function analyzeCoin(sym,tf,amount,type,lev){
   return{symbol:sym,pair:sym.replace('USDT','/USDT'),side,score,reasons,price,entry:price,stop,tp1,tp2,tp3,rr:+rr.toFixed(2),rsi:+rsiVal.toFixed(1),atr:atrVal,volPct,change24h:ticker.change,volume24h:ticker.volume,posSize:+posSize.toFixed(6),cost:+cost.toFixed(2),profit1:+profit1.toFixed(2),profit2:+profit2.toFixed(2),profit3:+profit3.toFixed(2),leverage:type==='futures'?lev:1,trendStr,supports,resistances,macdHist:macdVal?macdVal.hist:0,bbPctB:bb?bb.pctB:0.5,ticker}
 }
 
+// Versão síncrona (dados já baixados)
+function analyzeCoinLocal(tickerData,klines,tf,amount,type,lev){
+  const closes=klines.map(k=>k.close),highs=klines.map(k=>k.high),lows=klines.map(k=>k.low),vols=klines.map(k=>k.volume);
+  const price=tickerData.price;
+  const ema20=ema(closes,20),ema50=ema(closes,50),ema200=ema(closes,200),rsiVal=rsi(closes,14),atrVal=atr(highs,lows,closes,14),macdVal=macd(closes),bb=boll(closes);
+  const patterns=detectPatterns(klines),sr=findSR(klines);
+  if(!ema20||!ema50||rsiVal===null||!atrVal)return null;
+  let score=0,reasons=[],side=null;
+  if(price>ema50){score++;reasons.push({text:'Acima EMA50',on:true})}else{reasons.push({text:'Abaixo EMA50',on:false})}
+  if(ema20>ema50){score++;reasons.push({text:'EMA20 > EMA50',on:true})}else{reasons.push({text:'EMA20 < EMA50',on:false})}
+  if(ema200){if(price>ema200){score++;reasons.push({text:'Acima EMA200',on:true})}else{reasons.push({text:'Abaixo EMA200',on:false})}}
+  if(rsiVal>=45&&rsiVal<=65){score+=2;reasons.push({text:`RSI ${rsiVal.toFixed(0)} ✓`,on:true})}else if(rsiVal<30){score++;reasons.push({text:`RSI ${rsiVal.toFixed(0)} oversold`,on:true})}else if(rsiVal>70){score--;reasons.push({text:`RSI ${rsiVal.toFixed(0)} overbought`,on:false})}else{reasons.push({text:`RSI ${rsiVal.toFixed(0)}`,on:false})}
+  if(macdVal){if(macdVal.cross){score++;reasons.push({text:'MACD cruzamento ↑',on:true})}else if(macdVal.deadCross){score--;reasons.push({text:'MACD cruzamento ↓',on:false})}else if(macdVal.hist>0){reasons.push({text:'MACD positivo',on:true})}else{reasons.push({text:'MACD negativo',on:false})}}
+  if(bb){if(price<=bb.lower){score++;reasons.push({text:'Banda inferior',on:true})}else if(price>=bb.upper){score--;reasons.push({text:'Banda superior',on:false})}else{reasons.push({text:'Bollinger neutro',on:false})}}
+  for(const pat of patterns.slice(-3)){if(pat.side==='buy'){score++;reasons.push({text:pat.name,on:true})}else if(pat.side==='sell'){score--;reasons.push({text:pat.name,on:false})}}
+  const avgVol=vols.slice(-20).reduce((a,b)=>a+b,0)/20,volRatio=vols[vols.length-1]/avgVol;
+  if(volRatio>1.3){score++;reasons.push({text:`Volume ${volRatio.toFixed(1)}×`,on:true})}else{reasons.push({text:`Volume ${volRatio.toFixed(1)}×`,on:false})}
+  side=price>ema50?'buy':'sell';
+  if(type==='futures'&&score<=2&&price<ema50&&rsiVal>55)side='sell';
+  score=Math.max(0,Math.min(10,score));
+  const sd=atrVal*1.7,td=atrVal*3.2;let stop,tp1,tp2,tp3;
+  if(side==='buy'){stop=price-sd;tp1=price+td*0.8;tp2=price+td*1.2;tp3=price+td*1.8}else{stop=price+sd;tp1=price-td*0.8;tp2=price-td*1.2;tp3=price-td*1.8}
+  const rr=Math.abs(tp1-price)/Math.abs(price-stop);
+  const riskPct=2,riskAmt=amount*(riskPct/100),riskPerUnit=Math.abs(price-stop),posSize=riskAmt/riskPerUnit,cost=posSize*price;
+  const profit1=posSize*Math.abs(tp1-price),profit2=posSize*Math.abs(tp2-price),profit3=posSize*Math.abs(tp3-price);
+  const volPct=((atrVal/price)*100).toFixed(2);
+  const trendStr=ema20>ema50?(price>ema200?'Forte Alta':'Alta Fraca'):(price<ema200?'Forte Baixa':'Baixa Fraca');
+  const supports=sr.filter(s=>s.type==='support'&&s.price<price).sort((a,b)=>b.price-a.price).slice(0,2);
+  const resistances=sr.filter(s=>s.type==='resistance'&&s.price>price).sort((a,b)=>a.price-b.price).slice(0,2);
+  return{symbol:tickerData.symbol,pair:tickerData.symbol.replace('USDT','/USDT'),side,score,reasons,price,entry:price,stop,tp1,tp2,tp3,rr:+rr.toFixed(2),rsi:+rsiVal.toFixed(1),atr:atrVal,volPct,change24h:tickerData.change,volume24h:tickerData.volume,posSize:+posSize.toFixed(6),cost:+cost.toFixed(2),profit1:+profit1.toFixed(2),profit2:+profit2.toFixed(2),profit3:+profit3.toFixed(2),leverage:type==='futures'?lev:1,trendStr,supports,resistances,macdHist:macdVal?macdVal.hist:0,bbPctB:bb?bb.pctB:0.5,ticker:tickerData}
+}
+
 async function analyze(){
   const amount=+document.getElementById('amount').value;
   if(!amount||amount<10){alert('Mínimo $10');return}
   const btn=document.getElementById('btnAnalyze'),form=document.getElementById('mainForm'),loading=document.getElementById('loading'),results=document.getElementById('results');
   btn.disabled=true;btn.textContent='⏳ Analisando...';form.style.display='none';results.classList.remove('show');loading.classList.add('show');
   try{
-    setText('loadingText','📡 Buscando moedas...');setProgress('');
-    const tickers=await fetchAllTickers(),pairs=tickers.sort((a,b)=>b.volume-a.volume).slice(0,30);
-    setText('loadingText','📊 Analisando indicadores...');const analyzed=[];let errors=0;
-    for(let i=0;i<pairs.length;i++){setProgress(`${i+1}/${pairs.length} — ${pairs[i].symbol}`);try{const r=await analyzeCoin(pairs[i].symbol,selectedTF,amount,selectedType,selectedLev);if(r)analyzed.push(r)}catch(e){errors++;console.error('Erro '+pairs[i].symbol+':',e.message)}}
+    setText('loadingText','📡 Buscando moedas no mercado...');setProgress('');
+    const tickers=await fetchAllTickers(),pairs=tickers.sort((a,b)=>b.volume-a.volume).slice(0,20);
+    setText('loadingText','📊 Buscando dados de preço...');
+    const symbols=pairs.map(p=>p.symbol);
+    const klinesData=await fetchKlinesBatch(symbols,selectedTF,100);
+    setText('loadingText','🔬 Analisando indicadores...');
+    const analyzed=[];let errors=0;
+    for(let i=0;i<pairs.length;i++){setProgress(`${i+1}/${pairs.length} — ${pairs[i].symbol}`);const kl=klinesData[pairs[i].symbol];if(!kl||kl.length<30){errors++;continue}try{const r=analyzeCoinLocal(pairs[i],kl,selectedTF,amount,selectedType,selectedLev);if(r)analyzed.push(r)}catch(e){errors++;console.error('Erro '+pairs[i].symbol+':',e.message)}}
     analyzed.sort((a,b)=>b.score-a.score||b.rr-a.rr);
     loading.classList.remove('show');results.classList.add('show');
     // Alerta sonoro se有机会 forte (score >= 7)
