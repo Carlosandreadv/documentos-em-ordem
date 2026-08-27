@@ -247,7 +247,7 @@
         <div id="simpleLoadingText" style="margin-top:10px;color:var(--muted)">Analisando moedas...</div>
         <div id="simpleLoadingProgress" style="margin-top:6px;color:var(--muted);font-size:.8rem"></div>
       </div>
-      <div id="simpleResult" style="display:none"><div id="simpleTopResults"></div></div>
+      <div id="simpleResult" style="display:none"><div id="simpleTopResults"></div><div id="simpleMarketSummary"></div></div>
       <details style="margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
         <summary style="cursor:pointer;font-size:.88rem;font-weight:600;color:var(--muted)">⚙️ Configurar Binance (opcional)</summary>
         <div style="margin-top:10px">
@@ -1132,6 +1132,50 @@ async function autoAnalyzeAll() {
   }
 
   document.getElementById('simpleTopResults').innerHTML = html;
+
+  // Market Summary
+  const avgChange = allSignals.length ? allSignals.reduce((s, x) => s + (x.ticker?.change || 0), 0) / allSignals.length : 0;
+  const upCount = allSignals.filter(s => (s.ticker?.change || 0) > 0).length;
+  const downCount = allSignals.filter(s => (s.ticker?.change || 0) < 0).length;
+  const neutralCount = allSignals.length - upCount - downCount;
+  const sentiment = upCount > downCount * 1.5 ? '🟢 Bullish' : downCount > upCount * 1.5 ? '🔴 Bearish' : '🟡 Neutro';
+  const sentColor = upCount > downCount * 1.5 ? 'var(--green)' : downCount > upCount * 1.5 ? 'var(--red)' : 'var(--yellow)';
+  const avgScore = allSignals.length ? (allSignals.reduce((s, x) => s + x.score, 0) / allSignals.length).toFixed(1) : 0;
+  const strongBuys = buys.filter(s => s.score >= 8).length;
+  const strongSells = sells.filter(s => s.score >= 8).length;
+
+  document.getElementById('simpleMarketSummary').innerHTML = `
+    <div style="margin-top:16px;padding:14px;background:var(--card);border:1px solid var(--border);border-radius:12px">
+      <h3 style="font-size:.95rem;margin-bottom:10px">📊 Resumo do Mercado</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;text-align:center">
+        <div style="background:var(--log-bg);border-radius:8px;padding:10px">
+          <div style="font-weight:700;font-size:1.1rem;color:${sentColor}">${sentiment}</div>
+          <div style="font-size:.72rem;color:var(--muted)">Sentimento</div>
+        </div>
+        <div style="background:var(--log-bg);border-radius:8px;padding:10px">
+          <div style="font-weight:700;font-size:1.1rem;color:${avgChange > 0 ? 'var(--green)' : 'var(--red)'}">${avgChange > 0 ? '+' : ''}${avgChange.toFixed(2)}%</div>
+          <div style="font-size:.72rem;color:var(--muted)">Variação média 24h</div>
+        </div>
+        <div style="background:var(--log-bg);border-radius:8px;padding:10px">
+          <div style="font-weight:700;font-size:1.1rem">${upCount} ↑ / ${downCount} ↓ ${neutralCount > 0 ? '/ ' + neutralCount + ' →' : ''}</div>
+          <div style="font-size:.72rem;color:var(--muted)">Alta / Baixa / Lateral</div>
+        </div>
+        <div style="background:var(--log-bg);border-radius:8px;padding:10px">
+          <div style="font-weight:700;font-size:1.1rem">${buys.length} / ${sells.length}</div>
+          <div style="font-size:.72rem;color:var(--green)">Compras / <span style="color:var(--red)">Vendas</span></div>
+        </div>
+        <div style="background:var(--log-bg);border-radius:8px;padding:10px">
+          <div style="font-weight:700;font-size:1.1rem">${avgScore}</div>
+          <div style="font-size:.72rem;color:var(--muted)">Score Médio</div>
+        </div>
+        <div style="background:var(--log-bg);border-radius:8px;padding:10px">
+          <div style="font-weight:700;font-size:1.1rem">${strongBuys > 0 ? '🟢 ' + strongBuys : '0'} / ${strongSells > 0 ? '🔴 ' + strongSells : '0'}</div>
+          <div style="font-size:.72rem;color:var(--muted)">Muito Fortes</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:.78rem;color:var(--muted);text-align:center">${allSignals.length} moedas analisadas · ${new Date().toLocaleTimeString('pt-BR')}</div>
+    </div>`;
+
   if (progress) progress.textContent = `✅ ${allSignals.length} sinais encontrados`;
 }
 
