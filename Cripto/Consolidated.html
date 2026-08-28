@@ -35,7 +35,7 @@
     body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.45;transition:background .3s,color .3s}
 
     /* ===== LAYOUT ===== */
-    .app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+    .app{min-height:100vh}
     .sidebar{background:var(--card);border-right:1px solid var(--border);position:fixed;width:var(--sidebar-w);height:100vh;overflow-y:auto;display:flex;flex-direction:column;z-index:100}
     .sidebar-header{padding:18px 16px;border-bottom:1px solid var(--border)}
     .sidebar-header h1{font-size:1.2rem;background:linear-gradient(135deg,var(--blue),var(--purple),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -157,7 +157,6 @@
 
     /* Responsive */
     @media(max-width:900px){
-      .app{grid-template-columns:1fr}
       .sidebar{display:none}
       .main{margin-left:0;padding:14px}
     }
@@ -167,7 +166,7 @@
     .mobile-nav-item.active{background:var(--blue);color:#fff}
 
     /* Equity Canvas */
-    canvas{width:100%;height:auto;display:block}
+    canvas{width:100%;display:block;max-height:200px}
 
     /* Page headers */
     .page-header{margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border)}
@@ -658,27 +657,27 @@
       <!-- Gráficos de Performance -->
       <div class="card">
         <h2>📈 Gráficos de Performance</h2>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
           <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
             <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">💰 Equity Curve</h4>
-            <canvas id="journalEquityCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+            <canvas id="journalEquityCanvas" width="400" height="200" style="width:100%;height:180px"></canvas>
             <div id="journalEquityStats" style="display:flex;gap:8px;margin-top:6px;font-size:.72rem;color:var(--muted)"></div>
           </div>
           <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
             <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">📊 P&L por Trade</h4>
-            <canvas id="journalPnLCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+            <canvas id="journalPnLCanvas" width="400" height="200" style="width:100%;height:180px"></canvas>
           </div>
           <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
             <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">😊 Win Rate por Emoção</h4>
-            <canvas id="journalEmotionCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+            <canvas id="journalEmotionCanvas" width="400" height="200" style="width:100%;height:180px"></canvas>
           </div>
           <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
             <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">🎯 Win Rate por Setup</h4>
-            <canvas id="journalSetupCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+            <canvas id="journalSetupCanvas" width="400" height="200" style="width:100%;height:180px"></canvas>
           </div>
           <div style="background:var(--log-bg);border:1px solid var(--border);border-radius:10px;padding:12px">
             <h4 style="font-size:.85rem;margin-bottom:8px;color:var(--muted)">⏱️ Win Rate por Timeframe</h4>
-            <canvas id="journalTFCanvas" width="400" height="200" style="width:100%;height:auto"></canvas>
+            <canvas id="journalTFCanvas" width="400" height="200" style="width:100%;height:180px"></canvas>
           </div>
         </div>
       </div>
@@ -1181,10 +1180,30 @@ function detectPatterns(candles) {
 }
 
 // ===== API BINANCE =====
+const FETCH_TIMEOUT = 12000; // 12s timeout para requests
+const MAX_RETRIES = 2;
+async function fetchWithTimeout(url, retries=MAX_RETRIES) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+    try {
+      const r = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      return r;
+    } catch(e) {
+      clearTimeout(timer);
+      if (attempt < retries && (e.name === 'AbortError' || e.message?.includes('Failed to fetch') || e.message?.includes('NetworkError'))) {
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1))); // backoff
+        continue;
+      }
+      throw e;
+    }
+  }
+}
 async function fetchKlines(symbol, interval, limit=100) {
   const ck=`klines:${symbol}:${interval}:${limit}`; const cached=cache.get(ck); if(cached) return cached;
   await rateLimiter.wait();
-  const r=await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+  const r=await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
   if(!r.ok) throw new Error(`klines ${symbol}`);
   const d=await r.json();
   const result=d.map(k=>({time:k[0],open:+k[1],high:+k[2],low:+k[3],close:+k[4],volume:+k[5],volumeUSDT:+k[7]}));
@@ -1194,7 +1213,7 @@ async function fetchKlines(symbol, interval, limit=100) {
 async function fetchTicker(symbol) {
   const ck=`ticker:${symbol}`; const cached=cache.get(ck); if(cached) return cached;
   await rateLimiter.wait();
-  const r=await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
+  const r=await fetchWithTimeout(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
   if(!r.ok) return null;
   const d=await r.json();
   const result={symbol:d.symbol,price:+d.lastPrice,change:+d.priceChangePercent,high:+d.highPrice,low:+d.lowPrice,volume:+d.quoteVolume};
@@ -1204,7 +1223,7 @@ async function fetchTicker(symbol) {
 async function fetchAllTickers() {
   const ck='all_tickers'; const cached=cache.get(ck); if(cached) return cached;
   await rateLimiter.wait();
-  const r=await fetch('https://api.binance.com/api/v3/ticker/24hr');
+  const r=await fetchWithTimeout('https://api.binance.com/api/v3/ticker/24hr');
   if(!r.ok) throw new Error('Erro ao buscar tickers');
   const d=await r.json();
   const result=d.filter(t=>t.symbol.endsWith('USDT')).map(t=>({symbol:t.symbol,price:+t.lastPrice,change:+t.priceChangePercent,high:+t.highPrice,low:+t.lowPrice,volume:+t.quoteVolume}));
@@ -2261,7 +2280,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const getCtx = (id) => {
       const c = document.getElementById(id);
       if (!c) return null;
-      c.width = c.offsetWidth * 2; c.height = c.offsetHeight * 2;
+      const cw = c.offsetWidth || 300; const ch = c.offsetHeight || 180;
+      c.width = cw * 2; c.height = ch * 2;
       const ctx = c.getContext('2d');
       ctx.scale(2, 2);
       return { ctx, w: c.offsetWidth, h: c.offsetHeight };

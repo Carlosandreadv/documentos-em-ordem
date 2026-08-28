@@ -22,7 +22,16 @@ const server = http.createServer((req, res) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
     const ext = path.extname(filePath).toLowerCase();
     const mimeTypes = {'.html':'text/html; charset=utf-8','.svg':'image/svg+xml','.js':'application/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.ico':'image/x-icon'};
-    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
+    // Anti-cache: HTML e JS sempre frescos, assets estáticos podem cache
+    const noCache = ['.html', '.js', '.css'].includes(ext);
+    const headers = { 'Content-Type': mimeTypes[ext] || 'text/plain' };
+    if (noCache) {
+      headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      headers['Pragma'] = 'no-cache';
+      headers['Expires'] = '0';
+      headers['X-Content-Type-Options'] = 'nosniff';
+    }
+    res.writeHead(200, headers);
     res.end(content);
   });
 });
