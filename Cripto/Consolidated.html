@@ -222,7 +222,10 @@
       <div class="nav-item" data-page="chat"><span class="icon">💬</span>Chat AI</div>
     </nav>
       <div class="sidebar-footer">
-      <div id="pairValidationStatus" style="margin-bottom:6px;padding:4px 8px;border-radius:6px;font-size:.68rem;background:var(--log-bg);border:1px solid var(--border);display:flex;align-items:center;gap:4px"><span class="spinner" style="width:10px;height:10px"></span> Validando pares...</div>
+      <div style="margin-bottom:6px;display:flex;align-items:center;gap:4px">
+        <div id="pairValidationStatus" style="flex:1;padding:4px 8px;border-radius:6px;font-size:.68rem;background:var(--log-bg);border:1px solid var(--border);display:flex;align-items:center;gap:4px"><span class="spinner" style="width:10px;height:10px"></span> Validando pares...</div>
+        <button id="btnRevalidate" onclick="revalidatePairs()" title="Re-validar pares com Binance" style="padding:3px 6px;font-size:.65rem;border-radius:6px;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;line-height:1">🔄</button>
+      </div>
       CryptoMaster v2.5 · AI Trader Pro<br>
       ⚠️ Não é conselho financeiro
     </div>
@@ -1512,6 +1515,17 @@ const VALIDATION_TTL_MS = 86400000; // re-check every 24h
 function updatePairStatusHTML(msg, color) {
   const el = document.getElementById('pairValidationStatus');
   if (el) { el.innerHTML = msg; el.style.color = color; el.style.borderColor = color; }
+}
+async function revalidatePairs() {
+  const btn = document.getElementById('btnRevalidate');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  try {
+    localStorage.removeItem(VALIDATION_CACHE_KEY);
+    CONFIG.preferredPairs = [...DEFAULTS.preferredPairs];
+    await validatePairs();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄'; }
+  }
 }
 async function validatePairs() {
   const total = CONFIG.preferredPairs.length;
