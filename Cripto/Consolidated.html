@@ -1551,7 +1551,6 @@ async function validatePairs() {
     const batch = pairs.slice(i, i + BATCH);
     const results = await Promise.all(batch.map(async (sym) => {
       try {
-        await rateLimiter.wait();
         const r = await fetchWithTimeout(`/proxy/binance/api/v3/klines?symbol=${sym}&interval=1h&limit=1`);
         return { sym, ok: r.ok };
       } catch(e) { return { sym, ok: false }; }
