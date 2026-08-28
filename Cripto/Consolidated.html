@@ -220,7 +220,9 @@
 
       <div class="nav-section">🤖 Assistente</div>
       <div class="nav-item" data-page="chat"><span class="icon">💬</span>Chat AI</div>
-    </nav>      <div class="sidebar-footer">
+    </nav>
+      <div class="sidebar-footer">
+      <div id="pairValidationStatus" style="margin-bottom:6px;padding:4px 8px;border-radius:6px;font-size:.68rem;background:var(--log-bg);border:1px solid var(--border);display:flex;align-items:center;gap:4px"><span class="spinner" style="width:10px;height:10px"></span> Validando pares...</div>
       CryptoMaster v2.5 · AI Trader Pro<br>
       ⚠️ Não é conselho financeiro
     </div>
@@ -1507,23 +1509,30 @@ async function fetchAllTickers() {
 // ===== PAIR VALIDATION (startup check against Binance) =====
 const VALIDATION_CACHE_KEY = 'cryptomaster_validated_pairs';
 const VALIDATION_TTL_MS = 86400000; // re-check every 24h
+function updatePairStatusHTML(msg, color) {
+  const el = document.getElementById('pairValidationStatus');
+  if (el) { el.innerHTML = msg; el.style.color = color; el.style.borderColor = color; }
+}
 async function validatePairs() {
+  const total = CONFIG.preferredPairs.length;
   try {
     const cached = JSON.parse(localStorage.getItem(VALIDATION_CACHE_KEY) || 'null');
     if (cached && cached.ts && (Date.now() - cached.ts) < VALIDATION_TTL_MS && cached.valid) {
       const validSet = new Set(cached.valid);
       const before = CONFIG.preferredPairs.length;
       CONFIG.preferredPairs = CONFIG.preferredPairs.filter(p => validSet.has(p));
-      if (CONFIG.preferredPairs.length < before) {
-        log(`📋 Validação (cache): ${before - CONFIG.preferredPairs.length} pares removidos`, 'warn');
-      }
+      const removed = before - CONFIG.preferredPairs.length;
+      if (removed) log(`📋 Validação (cache): ${removed} pares removidos`, 'warn');
+      updatePairStatusHTML(`✅ ${CONFIG.preferredPairs.length}/${total} pares válidos`, 'var(--green)');
       return;
     }
   } catch(e) {}
   log('🔍 Validando pares com Binance...', 'info');
+  updatePairStatusHTML(`<span class="spinner" style="width:10px;height:10px"></span> Validando 0/${total}...`, 'var(--muted)');
   const pairs = [...CONFIG.preferredPairs];
   const BATCH = 10;
   const invalid = [];
+  let checked = 0;
   for (let i = 0; i < pairs.length; i += BATCH) {
     const batch = pairs.slice(i, i + BATCH);
     const results = await Promise.all(batch.map(async (sym) => {
@@ -1534,13 +1543,17 @@ async function validatePairs() {
       } catch(e) { return { sym, ok: false }; }
     }));
     results.forEach(r => { if (!r.ok) invalid.push(r.sym); });
+    checked += batch.length;
+    updatePairStatusHTML(`<span class="spinner" style="width:10px;height:10px"></span> Validando ${checked}/${total}...`, 'var(--muted)');
   }
   if (invalid.length) {
     const invSet = new Set(invalid);
     CONFIG.preferredPairs = CONFIG.preferredPairs.filter(p => !invSet.has(p));
     log(`🗑️ ${invalid.length} pares inválidos removidos: ${invalid.join(', ')}`, 'warn');
+    updatePairStatusHTML(`⚠️ ${CONFIG.preferredPairs.length}/${total} pares (removidos: ${invalid.length})`, 'var(--yellow)');
   } else {
     log(`✅ Todos os ${pairs.length} pares são válidos`, 'ok');
+    updatePairStatusHTML(`✅ ${pairs.length}/${total} pares válidos`, 'var(--green)');
   }
   try {
     localStorage.setItem(VALIDATION_CACHE_KEY, JSON.stringify({ ts: Date.now(), valid: CONFIG.preferredPairs }));
